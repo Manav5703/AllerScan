@@ -21,13 +21,15 @@ allergens = {
 def create_label_image(label_id, ingredients):
     img = Image.new("RGB", (400, 200), color="white")
     draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype("arial.ttf", 16)  # Ensure arial.ttf is available or adjust path
+    font = ImageFont.truetype("arial.ttf", 16)  # Adjust path or use ImageFont.load_default() if font missing
     draw.text((10, 10), f"Ingredients: {', '.join(ingredients)}", fill="black", font=font)
     img.save(f"data/label_{label_id}.png")
 
-    # Save annotation
+    # Save annotation with corrected allergen detection
     with open(f"data/label_{label_id}.txt", "w") as f:
-        detected = [allergen for allergen, terms in allergens.items() if any(term in ingredients.lower() for term in terms)]
+        # Convert ingredients list to lowercase for matching
+        ingredients_lower = [ing.lower() for ing in ingredients]
+        detected = [allergen for allergen, terms in allergens.items() if any(term in ingredients_lower for term in terms)]
         f.write(f"Contains: {', '.join(detected)}" if detected else "Contains: None")
 
 # Create 500 labels
