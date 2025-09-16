@@ -1,1 +1,1 @@
-Contains: None
+Contains: eggs, crustacean_shellfish, sulphites, mustard

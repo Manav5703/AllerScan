@@ -1,1 +1,1 @@
-Contains: None
+Contains: eggs, wheat, sulphites, mustard
