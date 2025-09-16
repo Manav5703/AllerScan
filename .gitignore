@@ -1,0 +1,15 @@
+ node_modules/
+ *.log
+ /android/build/
+ /android/app/debug/
+ *.keystore
+ *.DS_Store
+
+ # Python
+ __pycache__/
+ *.pyc
+ *.pyo
+ *.pyd
+ .Python
+ env/
+ venv/
