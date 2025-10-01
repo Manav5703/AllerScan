@@ -1,0 +1,241 @@
+{
+    "milk": {
+        "synonyms": [
+            "milk",
+            "dairy",
+            "lactose",
+            "whey",
+            "casein",
+            "butter",
+            "cream",
+            "cheese",
+            "yogurt",
+            "lactose",
+            "lactoserum",
+            "lactosérum",
+            "beurre",
+            "crème",
+            "fromage",
+            "yaourt"
+        ]
+    },
+    "eggs": {
+        "synonyms": [
+            "egg",
+            "eggs",
+            "egg white",
+            "egg yolk",
+            "albumen",
+            "ovalbumin",
+            "lysozyme",
+            "lecithin",
+            "œuf",
+            "œufs",
+            "blanc d'œuf",
+            "jaune d'œuf",
+            "albumine",
+            "ovalbumine",
+            "lysozyme",
+            "lécithine"
+        ]
+    },
+    "peanuts": {
+        "synonyms": [
+            "peanut",
+            "peanuts",
+            "groundnut",
+            "arachide",
+            "arachides",
+            "cacahuète",
+            "cacahuètes"
+        ]
+    },
+    "tree_nuts": {
+        "synonyms": [
+            "almond",
+            "almonds",
+            "walnut",
+            "walnuts",
+            "cashew",
+            "cashews",
+            "pistachio",
+            "pistachios",
+            "hazelnut",
+            "hazelnuts",
+            "pecan",
+            "pecans",
+            "brazil nut",
+            "brazil nuts",
+            "macadamia",
+            "macadamias",
+            "pine nut",
+            "pine nuts",
+            "amande",
+            "amandes",
+            "noix",
+            "noix de cajou",
+            "noix de cajou",
+            "pistache",
+            "pistaches",
+            "noisette",
+            "noisettes",
+            "pacane",
+            "pacanes",
+            "noix du brésil",
+            "noix du brésil",
+            "macadamia",
+            "macadamias",
+            "pignon",
+            "pignons"
+        ]
+    },
+    "soy": {
+        "synonyms": [
+            "soy",
+            "soya",
+            "soybean",
+            "soybeans",
+            "soy sauce",
+            "soy lecithin",
+            "soy protein",
+            "tofu",
+            "tempeh",
+            "miso",
+            "soja",
+            "soja",
+            "haricot de soja",
+            "haricots de soja",
+            "sauce soja",
+            "lécithine de soja",
+            "protéine de soja",
+            "tofu",
+            "tempeh",
+            "miso"
+        ]
+    },
+    "wheat": {
+        "synonyms": [
+            "wheat",
+            "flour",
+            "bread",
+            "pasta",
+            "cereal",
+            "gluten",
+            "wheat flour",
+            "all-purpose flour",
+            "whole wheat",
+            "durum wheat",
+            "semolina",
+            "couscous",
+            "bulgur",
+            "blé",
+            "farine",
+            "pain",
+            "pâtes",
+            "céréales",
+            "gluten",
+            "farine de blé",
+            "farine tout usage",
+            "blé entier",
+            "blé dur",
+            "semoule",
+            "couscous",
+            "boulgour"
+        ]
+    },
+    "fish": {
+        "synonyms": [
+            "fish",
+            "salmon",
+            "tuna",
+            "cod",
+            "haddock",
+            "halibut",
+            "sardine",
+            "anchovy",
+            "fish sauce",
+            "fish oil",
+            "poisson",
+            "saumon",
+            "thon",
+            "morue",
+            "églefin",
+            "flétan",
+            "sardine",
+            "anchois",
+            "sauce de poisson",
+            "huile de poisson"
+        ]
+    },
+    "shellfish": {
+        "synonyms": [
+            "shellfish",
+            "shrimp",
+            "crab",
+            "lobster",
+            "mussel",
+            "oyster",
+            "clam",
+            "scallop",
+            "squid",
+            "octopus",
+            "crustacés",
+            "crevette",
+            "crabe",
+            "homard",
+            "moule",
+            "huître",
+            "palourde",
+            "coquille saint-jacques",
+            "calmar",
+            "poulpe"
+        ]
+    },
+    "sesame": {
+        "synonyms": [
+            "sesame",
+            "sesame seed",
+            "sesame oil",
+            "tahini",
+            "halva",
+            "sésame",
+            "graine de sésame",
+            "huile de sésame",
+            "tahini",
+            "halva"
+        ]
+    },
+    "mustard": {
+        "synonyms": [
+            "mustard",
+            "mustard seed",
+            "mustard oil",
+            "mustard powder",
+            "mustard greens",
+            "moutarde",
+            "graine de moutarde",
+            "huile de moutarde",
+            "poudre de moutarde",
+            "feuilles de moutarde"
+        ]
+    },
+    "sulphites": {
+        "synonyms": [
+            "sulphites",
+            "sulfites",
+            "sulfur dioxide",
+            "sodium sulfite",
+            "sodium bisulfite",
+            "sodium metabisulfite",
+            "potassium sulfite",
+            "potassium bisulfite",
+            "sulfites",
+            "dioxyde de soufre",
+            "sulfite de sodium",
+            "bisulfite de sodium",
+            "métabisulfite de sodium",
+            "sulfite de potassium",
+            "bisulfite de potassium"
+        ]
+    }
+}
