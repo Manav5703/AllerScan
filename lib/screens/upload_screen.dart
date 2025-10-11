@@ -20,6 +20,7 @@ class _UploadScreenState extends State<UploadScreen> {
   AllergenDetector? _detector;
   final ImagePicker _picker = ImagePicker();
   File? _image;
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -33,28 +34,80 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   Future<void> _captureImage() async {
-    final XFile? pickedImage = await showDialog<XFile?>(
+    final XFile? pickedImage = await showModalBottomSheet<XFile?>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Image Source'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, null),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context, await _picker.pickImage(source: ImageSource.camera));
-            },
-            child: const Text('Camera'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context, await _picker.pickImage(source: ImageSource.gallery));
-            },
-            child: const Text('Gallery'),
-          ),
-        ],
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Select Image Source',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.camera_alt, color: Colors.teal.shade600),
+              ),
+              title: const Text(
+                'Camera',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text('Take a new photo'),
+              onTap: () async {
+                Navigator.pop(context, await _picker.pickImage(source: ImageSource.camera));
+              },
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.photo_library, color: Colors.blue.shade600),
+              ),
+              title: const Text(
+                'Gallery',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text('Choose from gallery'),
+              onTap: () async {
+                Navigator.pop(context, await _picker.pickImage(source: ImageSource.gallery));
+              },
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
       ),
     );
 
@@ -82,6 +135,8 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   Future<void> _performOCR(String imagePath) async {
+    setState(() => _isProcessing = true);
+    
     try {
       print('Starting OCR for image: $imagePath');
       
@@ -138,6 +193,8 @@ class _UploadScreenState extends State<UploadScreen> {
 
       print('Final filtered text: $normalizedForDisplay');
 
+      setState(() => _isProcessing = false);
+
       if (!mounted) return;
       Navigator.push(
         context,
@@ -152,6 +209,8 @@ class _UploadScreenState extends State<UploadScreen> {
       );
     } catch (e) {
       print('OCR Error: $e');
+      setState(() => _isProcessing = false);
+      
       if (!mounted) return;
       Navigator.push(
         context,
@@ -189,56 +248,229 @@ class _UploadScreenState extends State<UploadScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Scan Label'),
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline, color: Colors.white),
-            onPressed: () {},
-          ),
-        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              height: 250,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: _image == null ? Colors.grey[300] : null,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withAlpha((0.2 * 255).toInt()),
-                    spreadRadius: 2,
-                    blurRadius: 5,
+      body: Stack(
+        children: [
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 20),
+                  // Instructions
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Position the ingredient label clearly in the frame for best results',
+                            style: TextStyle(
+                              color: Colors.blue.shade900,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  // Image preview
+                  Container(
+                    height: 300,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey[300]!, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withAlpha((0.1 * 255).toInt()),
+                          spreadRadius: 2,
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: _image == null
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.image_outlined,
+                                size: 80,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No image selected',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tap the button below to get started',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          )
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Image.file(
+                              _image!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 32),
+                  // Action button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton.icon(
+                      onPressed: _isProcessing ? null : _captureImage,
+                      icon: const Icon(Icons.camera_alt, size: 24),
+                      label: Text(
+                        _image == null ? 'Capture or Select Image' : 'Change Image',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal.shade600,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Tips section
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.lightbulb_outline, color: Colors.amber.shade700, size: 20),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Tips for best results',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildTip('Ensure good lighting'),
+                        _buildTip('Keep the label flat and in focus'),
+                        _buildTip('Avoid shadows and glare'),
+                        _buildTip('Capture the entire ingredients section'),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              margin: const EdgeInsets.symmetric(vertical: 16.0),
-              child: _image == null
-                  ? const Center(child: Text('Image Preview', style: TextStyle(fontSize: 18)))
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.file(_image!, fit: BoxFit.cover),
-                    ),
             ),
-            ElevatedButton(
-              onPressed: _captureImage,
-              child: const Text('Capture or Select Image'),
+          ),
+          // Processing overlay
+          if (_isProcessing)
+            Container(
+              color: Colors.black.withAlpha((0.7 * 255).toInt()),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Colors.teal.shade600),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Analyzing ingredients...',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This may take a moment',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ],
-        ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTip(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.check_circle, color: Colors.green.shade600, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// Fixed cropping screen with correct crop_your_image API
+// Crop screen with polished UI
 class CropScreen extends StatefulWidget {
   final String imagePath;
 
@@ -269,8 +501,11 @@ class _CropScreenState extends State<CropScreen> {
   @override
   Widget build(BuildContext context) {
     if (_imageBytes == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.teal.shade600),
+        ),
       );
     }
 
@@ -287,7 +522,6 @@ class _CropScreenState extends State<CropScreen> {
           IconButton(
             icon: const Icon(Icons.check, color: Colors.white),
             onPressed: () {
-              // Trigger the crop operation
               _cropController.crop();
             },
           ),
@@ -308,7 +542,6 @@ class _CropScreenState extends State<CropScreen> {
                   image: _imageBytes!,
                   controller: _cropController,
                   onCropped: (croppedImage) {
-                    // This will be called when crop is triggered
                     Navigator.pop(context, croppedImage);
                   },
                 ),
@@ -320,33 +553,50 @@ class _CropScreenState extends State<CropScreen> {
             child: Column(
               children: [
                 const Text(
-                  'Drag the corners to crop the image. Focus on the ingredients label.',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
+                  'Drag the corners to crop the image',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
+                const Text(
+                  'Focus on the ingredients label for best results',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                      label: const Text('Cancel'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        label: const Text('Cancel', style: TextStyle(color: Colors.white)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: const BorderSide(color: Colors.white, width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        // Trigger the crop operation
-                        _cropController.crop();
-                      },
-                      icon: const Icon(Icons.check),
-                      label: const Text('Done'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _cropController.crop();
+                        },
+                        icon: const Icon(Icons.check),
+                        label: const Text('Done'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: Colors.teal.shade600,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
                   ],
