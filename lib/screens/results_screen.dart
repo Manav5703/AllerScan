@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../models/user_profile.dart';
 
 class ResultsScreen extends StatelessWidget {
   final String extractedIngredientsText;
   final List<String> hardAllergens;
   final List<String> softAllergens;
   final File? imageFile;
+  final UserProfile? userProfile; // Add user profile parameter
 
   const ResultsScreen({
     super.key,
@@ -13,26 +15,45 @@ class ResultsScreen extends StatelessWidget {
     required this.hardAllergens,
     required this.softAllergens,
     this.imageFile,
+    this.userProfile, // Optional user profile for filtering
   });
 
   final Map<String, String> _allergenLabels = const {
-    'milk': 'Milk',
-    'eggs': 'Eggs',
-    'peanuts': 'Peanuts',
-    'tree_nuts': 'Tree Nuts',
-    'soy': 'Soy',
-    'wheat': 'Wheat',
-    'fish': 'Fish',
-    'shellfish': 'Shellfish',
-    'sesame': 'Sesame',
-    'mustard': 'Mustard',
-    'sulphites': 'Sulphites',
+    'milk': '🥛 Milk',
+    'eggs': '🥚 Eggs',
+    'peanuts': '🥜 Peanuts',
+    'tree_nuts': '🌰 Tree Nuts',
+    'soy': '🫘 Soy',
+    'wheat': '🌾 Wheat',
+    'fish': '🐟 Fish',
+    'shellfish': '🦐 Shellfish',
+    'sesame': '🫘 Sesame',
+    'mustard': '🌭 Mustard',
+    'sulphites': '🧪 Sulphites',
   };
 
   @override
   Widget build(BuildContext context) {
-    final bool hasAllergens = hardAllergens.isNotEmpty || softAllergens.isNotEmpty;
-    
+    // Get all detected allergens (both hard and soft)
+    final allDetectedAllergens = {...hardAllergens, ...softAllergens};
+
+    // Get user's allergens from profile
+    final userAllergens = userProfile?.getAllAllergens() ?? [];
+
+    // Categorize allergens based on user's profile
+    final userAllergensDetected = allDetectedAllergens.where((allergen) => userAllergens.contains(allergen)).toList();
+    final userAllergensNotDetected = userAllergens.where((allergen) => !allDetectedAllergens.contains(allergen)).toList();
+    final otherAllergensDetected = allDetectedAllergens.where((allergen) => !userAllergens.contains(allergen)).toList();
+
+    // Separate hard and soft allergens for user's allergens
+    final userHardAllergens = hardAllergens.where((allergen) => userAllergens.contains(allergen)).toList();
+    final userSoftAllergens = softAllergens.where((allergen) => userAllergens.contains(allergen)).toList();
+
+    // Determine alert level based on user's allergens
+    final hasUserAllergens = userAllergensDetected.isNotEmpty;
+    final hasCriticalAllergens = userHardAllergens.isNotEmpty;
+    final bool hasAnyAllergens = hardAllergens.isNotEmpty || softAllergens.isNotEmpty;
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -43,8 +64,16 @@ class ResultsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Alert banner
-            if (hasAllergens)
+            // Personalized alert banner based on user's allergens
+            if (userProfile != null && userAllergens.isNotEmpty)
+              _buildPersonalizedAlertBanner(
+                hasUserAllergens: hasUserAllergens,
+                hasCriticalAllergens: hasCriticalAllergens,
+                userAllergensDetected: userAllergensDetected,
+                userName: userProfile!.name,
+              )
+            else
+              // Fallback to original alert banner (no user profile)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -92,51 +121,6 @@ class ResultsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-              )
-            else
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.green.shade400, Colors.green.shade600],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.check_circle,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'No Allergens Detected',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'This product appears safe',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
               ),
             
             Padding(
@@ -171,27 +155,68 @@ class ResultsScreen extends StatelessWidget {
                     const SizedBox(height: 24),
                   ],
 
-                  // Allergen cards
-                  if (hardAllergens.isNotEmpty) ...[
-                    _buildAllergenSection(
-                      title: 'Contains',
-                      icon: Icons.dangerous,
-                      color: Colors.red,
-                      allergens: hardAllergens,
-                      description: 'These allergens are confirmed in this product',
-                    ),
-                    const SizedBox(height: 16),
+                  // User's allergen results (if profile available and has allergens)
+                  if (userProfile != null && userAllergens.isNotEmpty) ...[
+                    // User's allergens that were DETECTED
+                    if (userAllergensDetected.isNotEmpty) ...[
+                      _buildUserAllergenSection(
+                        title: '⚠️ Your Allergens Detected',
+                        allergens: userAllergensDetected,
+                        hardAllergens: userHardAllergens,
+                        softAllergens: userSoftAllergens,
+                        isCritical: hasCriticalAllergens,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // User's allergens that were NOT detected (for awareness)
+                    if (userAllergensNotDetected.isNotEmpty) ...[
+                      _buildUserAllergenSection(
+                        title: '✅ Your Safe Allergens',
+                        allergens: userAllergensNotDetected,
+                        hardAllergens: [],
+                        softAllergens: [],
+                        isCritical: false,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   ],
 
-                  if (softAllergens.isNotEmpty) ...[
-                    _buildAllergenSection(
-                      title: 'May Contain',
-                      icon: Icons.warning_amber,
-                      color: Colors.orange,
-                      allergens: softAllergens,
-                      description: 'These allergens were detected in the ingredients list',
-                    ),
-                    const SizedBox(height: 16),
+                  // All detected allergens (original sections, but less prominent if user has profile)
+                  if (hardAllergens.isNotEmpty || softAllergens.isNotEmpty) ...[
+                    if (userProfile != null && userAllergens.isNotEmpty) ...[
+                      const Text(
+                        'All Detected Allergens',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    if (hardAllergens.isNotEmpty) ...[
+                      _buildAllergenSection(
+                        title: 'Contains',
+                        icon: Icons.dangerous,
+                        color: Colors.red,
+                        allergens: hardAllergens,
+                        description: 'These allergens are confirmed in this product',
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    if (softAllergens.isNotEmpty) ...[
+                      _buildAllergenSection(
+                        title: 'May Contain',
+                        icon: Icons.warning_amber,
+                        color: Colors.orange,
+                        allergens: softAllergens,
+                        description: 'These allergens were detected in the ingredients list',
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   ],
 
                   // Ingredients section
@@ -282,6 +307,174 @@ class ResultsScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPersonalizedAlertBanner({
+    required bool hasUserAllergens,
+    required bool hasCriticalAllergens,
+    required List<String> userAllergensDetected,
+    required String userName,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: hasCriticalAllergens
+              ? [Colors.red.shade400, Colors.red.shade600]
+              : hasUserAllergens
+                  ? [Colors.orange.shade400, Colors.orange.shade600]
+                  : [Colors.green.shade400, Colors.green.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasCriticalAllergens
+                ? Icons.warning
+                : hasUserAllergens
+                    ? Icons.warning_amber
+                    : Icons.check_circle,
+            color: Colors.white,
+            size: 32,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasCriticalAllergens
+                      ? 'Danger! Your Allergens Found'
+                      : hasUserAllergens
+                          ? 'Warning: Your Allergens Detected'
+                          : 'Safe for You',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hasCriticalAllergens
+                      ? 'This product contains allergens you\'re allergic to'
+                      : hasUserAllergens
+                          ? 'This product contains some of your allergens'
+                          : 'This product doesn\'t contain your allergens',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+                if (userAllergensDetected.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Detected: ${userAllergensDetected.map((a) => _allergenLabels[a] ?? a).join(', ')}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserAllergenSection({
+    required String title,
+    required List<String> allergens,
+    required List<String> hardAllergens,
+    required List<String> softAllergens,
+    required bool isCritical,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isCritical ? Colors.red.shade50 : Colors.green.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isCritical ? Colors.red.shade200 : Colors.green.shade200,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isCritical ? Colors.red.shade700 : Colors.green.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: allergens.map((allergen) {
+              final isHardAllergen = hardAllergens.contains(allergen);
+              final isSoftAllergen = softAllergens.contains(allergen);
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isHardAllergen
+                      ? Colors.red.shade100
+                      : isSoftAllergen
+                          ? Colors.orange.shade100
+                          : Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isHardAllergen
+                        ? Colors.red.shade300
+                        : isSoftAllergen
+                            ? Colors.orange.shade300
+                            : Colors.green.shade300,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _allergenLabels[allergen] ?? allergen,
+                      style: TextStyle(
+                        color: isHardAllergen
+                            ? Colors.red.shade700
+                            : isSoftAllergen
+                                ? Colors.orange.shade700
+                                : Colors.green.shade700,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (isHardAllergen) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.warning, size: 14, color: Colors.red.shade700),
+                    ] else if (isSoftAllergen) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.info, size: 14, color: Colors.orange.shade700),
+                    ],
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

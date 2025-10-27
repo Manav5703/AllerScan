@@ -7,6 +7,8 @@ import 'dart:typed_data';
 import '../utils/text_normalization.dart';
 import '../utils/allergen_detector.dart';
 import 'results_screen.dart';
+import '../models/user_profile.dart';
+import '../services/profile_service.dart';
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -21,16 +23,31 @@ class _UploadScreenState extends State<UploadScreen> {
   final ImagePicker _picker = ImagePicker();
   File? _image;
   bool _isProcessing = false;
+  final ProfileService _profileService = ProfileService();
+  UserProfile? _userProfile;
 
   @override
   void initState() {
     super.initState();
+    _loadProfile();
     AllergenDictionary.loadEnglish().then((d) {
       setState(() {
         _dict = d;
         _detector = AllergenDetector(d, enableFuzzy: true);
       });
     });
+  }
+
+  Future<void> _loadProfile() async {
+    final profile = await _profileService.loadProfile();
+    setState(() {
+      _userProfile = profile;
+    });
+  }
+
+  // Refresh profile (call this when returning from profile screen)
+  void _refreshProfile() {
+    _loadProfile();
   }
 
   Future<void> _captureImage() async {
@@ -136,55 +153,103 @@ class _UploadScreenState extends State<UploadScreen> {
 
   Future<void> _performOCR(String imagePath) async {
     setState(() => _isProcessing = true);
-    
+
     try {
-      print('Starting OCR for image: $imagePath');
-      
-      // Try both PSM 4 and PSM 6, pick the better result
-      String text4 = await FlutterTesseractOcr.extractText(
-        imagePath,
-        language: 'eng',
-        args: {
-          'psm': '4',
-          'preserve_interword_spaces': '1',
-          'tessdata': 'assets/tessdata/',
-        },
-      );
+      print('Starting enhanced OCR for image: $imagePath');
 
-      String text6 = await FlutterTesseractOcr.extractText(
-        imagePath,
-        language: 'eng',
-        args: {
-          'psm': '6',
-          'preserve_interword_spaces': '1',
-          'tessdata': 'assets/tessdata/',
-        },
-      );
+      // OCR configurations to try (without image preprocessing for now)
+      final List<Map<String, String>> ocrConfigs = [
+        // PSM modes with character whitelist
+        {'psm': '4', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
+        {'psm': '6', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
+        {'psm': '11', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
+        {'psm': '13', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
+        {'psm': '3', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
 
-      print('Raw OCR Text (PSM 4): $text4');
-      print('Raw OCR Text (PSM 6): $text6');
+        // Legacy engine variants (fallback)
+        {'psm': '4', 'oem': '0', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
+        {'psm': '6', 'oem': '0', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
+      ];
 
-      // Pick the better result based on allergen detection
-      String chosenText = text4;
-      if (_detector != null) {
-        final hits4 = _detector!.detect(text4);
-        final hits6 = _detector!.detect(text6);
-        print('PSM 4 hits: ${hits4.length}, PSM 6 hits: ${hits6.length}');
-        if (hits6.length > hits4.length) {
-          chosenText = text6;
+      String? bestText;
+      int bestScore = 0;
+      List<String> bestHardAllergens = [];
+      List<String> bestSoftAllergens = [];
+
+      // Try each OCR configuration
+      for (final config in ocrConfigs) {
+        try {
+          // Perform OCR with this configuration
+          final text = await FlutterTesseractOcr.extractText(
+            imagePath,
+            language: 'eng',
+            args: {
+              'psm': config['psm']!,
+              'oem': config['oem']!,
+              'tessedit_char_whitelist': config['char_whitelist']!,
+              'preserve_interword_spaces': '1',
+              'tessdata': 'assets/tessdata/',
+            },
+          );
+
+          if (text.trim().isEmpty) continue;
+
+          print('OCR Result (PSM ${config['psm']}, OEM ${config['oem']}): $text');
+
+          // Detect allergens
+          if (_detector != null) {
+            final hits = _detector!.detect(text);
+            final hardAllergens = hits.where((h) => h.hard).map((h) => h.allergenKey).toSet().toList()..sort();
+            final softAllergens = hits.where((h) => !h.hard).map((h) => h.allergenKey).toSet().toList()..sort();
+
+            // Enhanced scoring: weight by confidence and prioritize hard allergens
+            double hardScore = hardAllergens.length * 3.0; // Hard allergens worth 3x
+            double softScore = softAllergens.length * 1.0; // Soft allergens worth 1x
+            double confidenceScore = hits.fold(0.0, (sum, hit) => sum + hit.confidence); // Add confidence scores
+            int score = (hardScore + softScore + (confidenceScore * 0.5) + (text.length ~/ 20)).toInt();
+
+            print('Score: $score (Hard: ${hardAllergens.length}, Soft: ${softAllergens.length}, Confidence: ${confidenceScore.toStringAsFixed(2)}, Text length: ${text.length})');
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestText = text;
+              bestHardAllergens = hardAllergens;
+              bestSoftAllergens = softAllergens;
+            }
+          }
+
+        } catch (e) {
+          print('OCR error with config ${config['psm']}_${config['oem']}: $e');
         }
       }
 
-      // Detect allergens on chosen text
-      List<String> hard = [];
-      List<String> soft = [];
-      if (_detector != null) {
-        final hits = _detector!.detect(chosenText);
-        hard = hits.where((h) => h.hard).map((h) => h.allergenKey).toSet().toList()..sort();
-        soft = hits.where((h) => !h.hard).map((h) => h.allergenKey).toSet().toList()..sort();
-        print('Detected hard allergens: $hard');
-        print('Detected soft allergens: $soft');
+      // Use best result or fallback to original method
+      String chosenText;
+      List<String> hard;
+      List<String> soft;
+
+      if (bestText != null && bestScore > 0) {
+        chosenText = bestText;
+        hard = bestHardAllergens;
+        soft = bestSoftAllergens;
+        print('Using enhanced OCR result (Score: $bestScore)');
+      } else {
+        // Fallback to original method
+        print('Using fallback OCR method');
+        chosenText = await _fallbackOCR(imagePath);
+        if (_detector != null) {
+          final hits = _detector!.detect(chosenText);
+          hard = hits.where((h) => h.hard).map((h) => h.allergenKey).toSet().toList()..sort();
+          soft = hits.where((h) => !h.hard).map((h) => h.allergenKey).toSet().toList()..sort();
+        } else {
+          hard = [];
+          soft = [];
+        }
       }
+
+      print('Final OCR Text: $chosenText');
+      print('Detected hard allergens: $hard');
+      print('Detected soft allergens: $soft');
 
       final filteredText = _filterIngredients(chosenText);
       final normalizedForDisplay = filteredText.isNotEmpty
@@ -204,13 +269,17 @@ class _UploadScreenState extends State<UploadScreen> {
             hardAllergens: hard,
             softAllergens: soft,
             imageFile: _image,
+            userProfile: _userProfile,
           ),
         ),
-      );
+      ).then((_) {
+        _refreshProfile();
+      });
+
     } catch (e) {
-      print('OCR Error: $e');
+      print('Enhanced OCR Error: $e');
       setState(() => _isProcessing = false);
-      
+
       if (!mounted) return;
       Navigator.push(
         context,
@@ -220,10 +289,62 @@ class _UploadScreenState extends State<UploadScreen> {
             hardAllergens: [],
             softAllergens: [],
             imageFile: _image,
+            userProfile: _userProfile,
           ),
         ),
-      );
+      ).then((_) {
+        _refreshProfile();
+      });
     }
+  }
+
+  // Fallback OCR method (original implementation)
+  Future<String> _fallbackOCR(String imagePath) async {
+    String text4 = await FlutterTesseractOcr.extractText(
+      imagePath,
+      language: 'eng',
+      args: {
+        'psm': '4',
+        'preserve_interword_spaces': '1',
+        'tessdata': 'assets/tessdata/',
+      },
+    );
+
+    String text6 = await FlutterTesseractOcr.extractText(
+      imagePath,
+      language: 'eng',
+      args: {
+        'psm': '6',
+        'preserve_interword_spaces': '1',
+        'tessdata': 'assets/tessdata/',
+      },
+    );
+
+    print('Fallback OCR Text (PSM 4): $text4');
+    print('Fallback OCR Text (PSM 6): $text6');
+
+    if (_detector != null) {
+      final hits4 = _detector!.detect(text4);
+      final hits6 = _detector!.detect(text6);
+
+      // Enhanced scoring for fallback
+      double score4 = _calculateScore(hits4, text4);
+      double score6 = _calculateScore(hits6, text6);
+
+      print('Fallback scores - PSM 4: ${score4.toStringAsFixed(2)}, PSM 6: ${score6.toStringAsFixed(2)}');
+
+      return score6 > score4 ? text6 : text4;
+    }
+
+    return text4; // Default fallback
+  }
+
+  double _calculateScore(List<dynamic> hits, String text) {
+    final hardAllergens = hits.where((h) => h.hard).map((h) => h.allergenKey).toSet().toList();
+    final softAllergens = hits.where((h) => !h.hard).map((h) => h.allergenKey).toSet().toList();
+    final confidenceScore = hits.fold(0.0, (sum, hit) => sum + hit.confidence);
+
+    return (hardAllergens.length * 3.0) + softAllergens.length + (confidenceScore * 0.5) + (text.length ~/ 20);
   }
 
   String _filterIngredients(String text) {
@@ -422,7 +543,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       CircularProgressIndicator(color: Colors.teal.shade600),
                       const SizedBox(height: 20),
                       const Text(
-                        'Analyzing ingredients...',
+                        'Analyzing with enhanced OCR...',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -431,7 +552,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'This may take a moment',
+                        'Testing multiple recognition modes for best accuracy',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
