@@ -18,7 +18,8 @@ class ResultsScreen extends StatelessWidget {
     this.userProfile, // Optional user profile for filtering
   });
 
-  final Map<String, String> _allergenLabels = const {
+  // English allergen labels
+  final Map<String, String> _englishAllergenLabels = const {
     'milk': '🥛 Milk',
     'eggs': '🥚 Eggs',
     'peanuts': '🥜 Peanuts',
@@ -31,23 +32,150 @@ class ResultsScreen extends StatelessWidget {
     'mustard': '🌭 Mustard',
     'sulphites': '🧪 Sulphites',
   };
+  
+  // French allergen labels
+  final Map<String, String> _frenchAllergenLabels = const {
+    'milk': '🥛 Lait',
+    'eggs': '🥚 Œufs',
+    'peanuts': '🥜 Arachides',
+    'tree_nuts': '🌰 Noix',
+    'soy': '🫘 Soja',
+    'wheat': '🌾 Blé',
+    'fish': '🐟 Poisson',
+    'shellfish': '🦐 Crustacés',
+    'sesame': '🫘 Sésame',
+    'mustard': '🌭 Moutarde',
+    'sulphites': '🧪 Sulfites',
+  };
+  
+  // Map between English and French allergen keys
+  final Map<String, String> _allergenKeyMap = const {
+    // English to French
+    'milk': 'lait',
+    'eggs': 'oeufs',
+    'peanuts': 'arachides',
+    'tree_nuts': 'noix',
+    'soy': 'soja',
+    'wheat': 'blé',
+    'fish': 'poisson',
+    'shellfish': 'crustacés',
+    'sesame': 'sésame',
+    'mustard': 'moutarde',
+    'sulphites': 'sulfites',
+    // French to English
+    'lait': 'milk',
+    'oeufs': 'eggs',
+    'arachides': 'peanuts',
+    'noix': 'tree_nuts',
+    'soja': 'soy',
+    'blé': 'wheat',
+    'poisson': 'fish',
+    'crustacés': 'shellfish',
+    'sésame': 'sesame',
+    'moutarde': 'mustard',
+    'sulfites': 'sulphites',
+  };
+  
+  // Get allergen label based on user's language
+  String _getAllergenLabel(String allergenKey) {
+    final isFrench = userProfile?.language == 'fr';
+    final label = isFrench
+        ? _frenchAllergenLabels[allergenKey]
+        : _englishAllergenLabels[allergenKey];
+    return label ?? allergenKey;
+  }
+  
+  // Convert allergen key to the correct language
+  String _normalizeAllergenKey(String allergenKey) {
+    final isFrench = userProfile?.language == 'fr';
+    
+    // If we're in French mode and have an English key, convert it to French
+    if (isFrench && _allergenKeyMap.containsKey(allergenKey)) {
+      return _allergenKeyMap[allergenKey] ?? allergenKey;
+    }
+    
+    // If we're in English mode and have a French key, convert it to English
+    if (!isFrench && _allergenKeyMap.containsKey(allergenKey)) {
+      return _allergenKeyMap[allergenKey] ?? allergenKey;
+    }
+    
+    return allergenKey;
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Debug print statement for non-detected allergens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userAllergens = userProfile?.getAllAllergens() ?? [];
+      final mappedUserAllergens = userAllergens.map((allergen) => _normalizeAllergenKey(allergen)).toList();
+      final allDetectedAllergens = {...hardAllergens, ...softAllergens};
+      
+      final userAllergensNotDetected = userAllergens.where((allergen) => 
+          !allDetectedAllergens.contains(allergen) && 
+          !allDetectedAllergens.contains(_normalizeAllergenKey(allergen))
+      ).toList();
+      
+      final userHardAllergens = hardAllergens.where((allergen) => 
+          mappedUserAllergens.contains(allergen) || 
+          mappedUserAllergens.contains(_normalizeAllergenKey(allergen))
+      ).toList();
+      
+      print('Post-frame mapped user allergens: $mappedUserAllergens');
+      print('Post-frame detected allergens: $allDetectedAllergens');
+      
+      if (userAllergensNotDetected.isNotEmpty && userHardAllergens.isEmpty) {
+        print('Post-build: Showing non-detected allergens: $userAllergensNotDetected');
+      } else {
+        print('Post-build: NOT showing non-detected allergens due to detected critical allergens');
+      }
+    });
+    
     // Get all detected allergens (both hard and soft)
     final allDetectedAllergens = {...hardAllergens, ...softAllergens};
+    print('All detected allergens: $allDetectedAllergens');
 
     // Get user's allergens from profile
     final userAllergens = userProfile?.getAllAllergens() ?? [];
+    print('User allergens from profile: $userAllergens');
 
+    // Map user allergens to the correct language keys for comparison
+    final mappedUserAllergens = userAllergens.map((allergen) => _normalizeAllergenKey(allergen)).toList();
+    
     // Categorize allergens based on user's profile
-    final userAllergensDetected = allDetectedAllergens.where((allergen) => userAllergens.contains(allergen)).toList();
-    final userAllergensNotDetected = userAllergens.where((allergen) => !allDetectedAllergens.contains(allergen)).toList();
-    final otherAllergensDetected = allDetectedAllergens.where((allergen) => !userAllergens.contains(allergen)).toList();
+    final userAllergensDetected = allDetectedAllergens.where((allergen) => 
+        mappedUserAllergens.contains(allergen) || 
+        mappedUserAllergens.contains(_normalizeAllergenKey(allergen))
+    ).toList();
+    
+    final userAllergensNotDetected = userAllergens.where((allergen) => 
+        !allDetectedAllergens.contains(allergen) && 
+        !allDetectedAllergens.contains(_normalizeAllergenKey(allergen))
+    ).toList();
+    
+    final otherAllergensDetected = allDetectedAllergens.where((allergen) => 
+        !mappedUserAllergens.contains(allergen) && 
+        !mappedUserAllergens.contains(_normalizeAllergenKey(allergen))
+    ).toList();
+    
+    print('User allergens DETECTED in product: $userAllergensDetected');
+    print('User allergens NOT detected in product: $userAllergensNotDetected');
+    print('Other allergens detected (not in user profile): $otherAllergensDetected');
 
     // Separate hard and soft allergens for user's allergens
-    final userHardAllergens = hardAllergens.where((allergen) => userAllergens.contains(allergen)).toList();
-    final userSoftAllergens = softAllergens.where((allergen) => userAllergens.contains(allergen)).toList();
+    final userHardAllergens = hardAllergens.where((allergen) => 
+        mappedUserAllergens.contains(allergen) || 
+        mappedUserAllergens.contains(_normalizeAllergenKey(allergen))
+    ).toList();
+    
+    final userSoftAllergens = softAllergens.where((allergen) => 
+        mappedUserAllergens.contains(allergen) || 
+        mappedUserAllergens.contains(_normalizeAllergenKey(allergen))
+    ).toList();
+    
+    print('Hard allergens in product: $hardAllergens');
+    print('Soft allergens in product: $softAllergens');
+    print('User HARD allergens detected: $userHardAllergens');
+    print('User SOFT allergens detected: $userSoftAllergens');
 
     // Determine alert level based on user's allergens
     final hasUserAllergens = userAllergensDetected.isNotEmpty;
@@ -160,23 +288,35 @@ class ResultsScreen extends StatelessWidget {
                     // User's allergens that were DETECTED
                     if (userAllergensDetected.isNotEmpty) ...[
                       _buildUserAllergenSection(
-                        title: '⚠️ Your Allergens Detected',
+                        title: userProfile?.language == 'fr'
+                            ? '⚠️ ATTENTION: Vos Allergènes Détectés!'
+                            : '⚠️ Your Allergens Detected',
                         allergens: userAllergensDetected,
                         hardAllergens: userHardAllergens,
                         softAllergens: userSoftAllergens,
                         isCritical: hasCriticalAllergens,
+                        description: userProfile?.language == 'fr'
+                            ? 'Ces allergènes de votre profil ont été détectés dans ce produit'
+                            : 'These allergens from your profile were detected in this product',
                       ),
                       const SizedBox(height: 16),
                     ],
 
                     // User's allergens that were NOT detected (for awareness)
-                    if (userAllergensNotDetected.isNotEmpty) ...[
+                    // Only show this section if we have allergens that weren't detected AND
+                    // there are no critical allergens detected (otherwise it's misleading)
+                    if (userAllergensNotDetected.isNotEmpty && !hasCriticalAllergens) ...[
                       _buildUserAllergenSection(
-                        title: '✅ Your Safe Allergens',
+                        title: userProfile?.language == 'fr'
+                            ? '✅ Allergènes Non Détectés'
+                            : '✅ Your Safe Allergens',
                         allergens: userAllergensNotDetected,
                         hardAllergens: [],
                         softAllergens: [],
                         isCritical: false,
+                        description: userProfile?.language == 'fr'
+                            ? 'Ces allergènes de votre profil n\'ont pas été détectés dans ce produit'
+                            : 'These allergens from your profile were not detected in this product',
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -185,9 +325,11 @@ class ResultsScreen extends StatelessWidget {
                   // All detected allergens (original sections, but less prominent if user has profile)
                   if (hardAllergens.isNotEmpty || softAllergens.isNotEmpty) ...[
                     if (userProfile != null && userAllergens.isNotEmpty) ...[
-                      const Text(
-                        'All Detected Allergens',
-                        style: TextStyle(
+                      Text(
+                        userProfile?.language == 'fr'
+                            ? 'Tous les Allergènes Détectés'
+                            : 'All Detected Allergens',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.black54,
@@ -198,22 +340,26 @@ class ResultsScreen extends StatelessWidget {
 
                     if (hardAllergens.isNotEmpty) ...[
                       _buildAllergenSection(
-                        title: 'Contains',
+                        title: userProfile?.language == 'fr' ? 'Contient' : 'Contains',
                         icon: Icons.dangerous,
                         color: Colors.red,
                         allergens: hardAllergens,
-                        description: 'These allergens are confirmed in this product',
+                        description: userProfile?.language == 'fr'
+                            ? 'Ces allergènes sont confirmés dans ce produit'
+                            : 'These allergens are confirmed in this product',
                       ),
                       const SizedBox(height: 12),
                     ],
 
                     if (softAllergens.isNotEmpty) ...[
                       _buildAllergenSection(
-                        title: 'May Contain',
+                        title: userProfile?.language == 'fr' ? 'Peut Contenir' : 'May Contain',
                         icon: Icons.warning_amber,
                         color: Colors.orange,
                         allergens: softAllergens,
-                        description: 'These allergens were detected in the ingredients list',
+                        description: userProfile?.language == 'fr'
+                            ? 'Ces allergènes ont été détectés dans la liste des ingrédients'
+                            : 'These allergens were detected in the ingredients list',
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -234,9 +380,9 @@ class ResultsScreen extends StatelessWidget {
                           children: [
                             Icon(Icons.list_alt, color: Colors.teal.shade600, size: 24),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Ingredients Detected',
-                              style: TextStyle(
+                            Text(
+                              userProfile?.language == 'fr' ? 'Ingrédients Détectés' : 'Ingredients Detected',
+                              style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
@@ -273,7 +419,7 @@ class ResultsScreen extends StatelessWidget {
                         child: OutlinedButton.icon(
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.refresh),
-                          label: const Text('Scan Another'),
+                          label: Text(userProfile?.language == 'fr' ? 'Scanner un Autre' : 'Scan Another'),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             side: BorderSide(color: Colors.teal.shade600, width: 2),
@@ -290,7 +436,7 @@ class ResultsScreen extends StatelessWidget {
                             Navigator.popUntil(context, (route) => route.isFirst);
                           },
                           icon: const Icon(Icons.home),
-                          label: const Text('Home'),
+                          label: Text(userProfile?.language == 'fr' ? 'Accueil' : 'Home'),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             backgroundColor: Colors.teal.shade600,
@@ -348,11 +494,17 @@ class ResultsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hasCriticalAllergens
-                      ? 'Danger! Your Allergens Found'
-                      : hasUserAllergens
-                          ? 'Warning: Your Allergens Detected'
-                          : 'Safe for You',
+                  userProfile?.language == 'fr'
+                      ? (hasCriticalAllergens
+                          ? 'DANGER! Vos Allergènes Trouvés!'
+                          : hasUserAllergens
+                              ? 'ATTENTION: Vos Allergènes Détectés!'
+                              : 'Sûr pour Vous')
+                      : (hasCriticalAllergens
+                          ? 'DANGER! Your Allergens Found!'
+                          : hasUserAllergens
+                              ? 'WARNING: Your Allergens Detected!'
+                              : 'Safe for You'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -361,11 +513,17 @@ class ResultsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  hasCriticalAllergens
-                      ? 'This product contains allergens you\'re allergic to'
-                      : hasUserAllergens
-                          ? 'This product contains some of your allergens'
-                          : 'This product doesn\'t contain your allergens',
+                  userProfile?.language == 'fr'
+                      ? (hasCriticalAllergens
+                          ? 'Ce produit contient des allergènes auxquels vous êtes allergique'
+                          : hasUserAllergens
+                              ? 'Ce produit contient certains de vos allergènes'
+                              : 'Ce produit ne contient pas vos allergènes')
+                      : (hasCriticalAllergens
+                          ? 'This product contains allergens you\'re allergic to'
+                          : hasUserAllergens
+                              ? 'This product contains some of your allergens'
+                              : 'This product doesn\'t contain your allergens'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -374,7 +532,9 @@ class ResultsScreen extends StatelessWidget {
                 if (userAllergensDetected.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Detected: ${userAllergensDetected.map((a) => _allergenLabels[a] ?? a).join(', ')}',
+                    userProfile?.language == 'fr'
+                        ? 'Détecté: ${userAllergensDetected.map((a) => _getAllergenLabel(a)).join(', ')}'
+                        : 'Detected: ${userAllergensDetected.map((a) => _getAllergenLabel(a)).join(', ')}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -396,6 +556,7 @@ class ResultsScreen extends StatelessWidget {
     required List<String> hardAllergens,
     required List<String> softAllergens,
     required bool isCritical,
+    String? description,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -422,6 +583,16 @@ class ResultsScreen extends StatelessWidget {
               ),
             ],
           ),
+          if (description != null) ...[  
+            const SizedBox(height: 8),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 13,
+                color: isCritical ? Colors.red.shade600 : Colors.green.shade700,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -451,7 +622,7 @@ class ResultsScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _allergenLabels[allergen] ?? allergen,
+                      _getAllergenLabel(allergen),
                       style: TextStyle(
                         color: isHardAllergen
                             ? Colors.red.shade700
@@ -531,7 +702,7 @@ class ResultsScreen extends StatelessWidget {
                   border: Border.all(color: color.withAlpha((0.3 * 255).toInt())),
                 ),
                 child: Text(
-                  _allergenLabels[allergen] ?? allergen,
+                  _getAllergenLabel(allergen),
                   style: TextStyle(
                     color: color.withAlpha((0.9 * 255).toInt()),
                     fontWeight: FontWeight.w600,

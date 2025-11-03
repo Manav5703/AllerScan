@@ -30,12 +30,44 @@ class _UploadScreenState extends State<UploadScreen> {
   void initState() {
     super.initState();
     _loadProfile();
-    AllergenDictionary.loadEnglish().then((d) {
+    _loadAllergenDictionary();
+  }
+  
+  Future<void> _loadAllergenDictionary() async {
+    try {
+      final profile = _userProfile ?? await _profileService.loadProfile();
+      final language = profile?.language ?? 'en';
+      
+      print('Loading allergen dictionary for language: $language');
+      print('User profile: ${profile?.name}, language: ${profile?.language}');
+      
+      AllergenDictionary dict;
+      if (language == 'fr') {
+        print('Attempting to load French dictionary...');
+        dict = await AllergenDictionary.loadFrench();
+      } else {
+        print('Loading English dictionary...');
+        dict = await AllergenDictionary.loadEnglish();
+      }
+      
+      print('Dictionary loaded with ${dict.allergenToTerms.length} allergens');
+      print('Allergen keys: ${dict.allergenToTerms.keys.toList()}');
+          
       setState(() {
-        _dict = d;
-        _detector = AllergenDetector(d, enableFuzzy: true);
+        _dict = dict;
+        _detector = AllergenDetector(dict, enableFuzzy: true);
       });
-    });
+      
+      print('Allergen dictionary loaded successfully for $language');
+    } catch (e) {
+      print('ERROR loading allergen dictionary: $e');
+      // Fallback to English dictionary
+      final dict = await AllergenDictionary.loadEnglish();
+      setState(() {
+        _dict = dict;
+        _detector = AllergenDetector(dict, enableFuzzy: true);
+      });
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -46,8 +78,10 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   // Refresh profile (call this when returning from profile screen)
-  void _refreshProfile() {
-    _loadProfile();
+  void _refreshProfile() async {
+    await _loadProfile();
+    // Reload allergen dictionary when profile changes (for language switch)
+    _loadAllergenDictionary();
   }
 
   Future<void> _captureImage() async {
@@ -159,16 +193,16 @@ class _UploadScreenState extends State<UploadScreen> {
 
       // OCR configurations to try (without image preprocessing for now)
       final List<Map<String, String>> ocrConfigs = [
-        // PSM modes with character whitelist
-        {'psm': '4', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
-        {'psm': '6', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
-        {'psm': '11', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
-        {'psm': '13', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
-        {'psm': '3', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
+        // PSM modes with character whitelist including French accented characters
+        {'psm': '4', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& éèêëàâäôöùûüÿçÉÈÊËÀÂÄÔÖÙÛÜŸÇœŒæÆ'},
+        {'psm': '6', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& éèêëàâäôöùûüÿçÉÈÊËÀÂÄÔÖÙÛÜŸÇœŒæÆ'},
+        {'psm': '11', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& éèêëàâäôöùûüÿçÉÈÊËÀÂÄÔÖÙÛÜŸÇœŒæÆ'},
+        {'psm': '13', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& éèêëàâäôöùûüÿçÉÈÊËÀÂÄÔÖÙÛÜŸÇœŒæÆ'},
+        {'psm': '3', 'oem': '1', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& éèêëàâäôöùûüÿçÉÈÊËÀÂÄÔÖÙÛÜŸÇœŒæÆ'},
 
         // Legacy engine variants (fallback)
-        {'psm': '4', 'oem': '0', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
-        {'psm': '6', 'oem': '0', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& '},
+        {'psm': '4', 'oem': '0', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& éèêëàâäôöùûüÿçÉÈÊËÀÂÄÔÖÙÛÜŸÇœŒæÆ'},
+        {'psm': '6', 'oem': '0', 'char_whitelist': 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.()/-%& éèêëàâäôöùûüÿçÉÈÊËÀÂÄÔÖÙÛÜŸÇœŒæÆ'},
       ];
 
       String? bestText;
@@ -182,7 +216,7 @@ class _UploadScreenState extends State<UploadScreen> {
           // Perform OCR with this configuration
           final text = await FlutterTesseractOcr.extractText(
             imagePath,
-            language: 'eng',
+            language: _userProfile?.language == 'fr' ? 'fra' : 'eng',
             args: {
               'psm': config['psm']!,
               'oem': config['oem']!,
@@ -198,9 +232,19 @@ class _UploadScreenState extends State<UploadScreen> {
 
           // Detect allergens
           if (_detector != null) {
+            print('Detecting allergens with dictionary: ${_detector!.dict.allergenToTerms.keys}');
             final hits = _detector!.detect(text);
+            print('Allergen detection hits: ${hits.length}');
+            
+            // Debug each hit
+            for (var hit in hits) {
+              print('Hit: ${hit.allergenKey}, term: "${hit.matchedTerm}", confidence: ${hit.confidence}, section: ${hit.section}');
+            }
+            
             final hardAllergens = hits.where((h) => h.hard).map((h) => h.allergenKey).toSet().toList()..sort();
             final softAllergens = hits.where((h) => !h.hard).map((h) => h.allergenKey).toSet().toList()..sort();
+            print('Hard allergens: $hardAllergens');
+            print('Soft allergens: $softAllergens');
 
             // Enhanced scoring: weight by confidence and prioritize hard allergens
             double hardScore = hardAllergens.length * 3.0; // Hard allergens worth 3x
@@ -300,9 +344,12 @@ class _UploadScreenState extends State<UploadScreen> {
 
   // Fallback OCR method (original implementation)
   Future<String> _fallbackOCR(String imagePath) async {
+    final ocrLanguage = _userProfile?.language == 'fr' ? 'fra' : 'eng';
+    print('Using fallback OCR with language: $ocrLanguage');
+    
     String text4 = await FlutterTesseractOcr.extractText(
       imagePath,
-      language: 'eng',
+      language: ocrLanguage,
       args: {
         'psm': '4',
         'preserve_interword_spaces': '1',
@@ -312,7 +359,7 @@ class _UploadScreenState extends State<UploadScreen> {
 
     String text6 = await FlutterTesseractOcr.extractText(
       imagePath,
-      language: 'eng',
+      language: ocrLanguage,
       args: {
         'psm': '6',
         'preserve_interword_spaces': '1',
@@ -351,18 +398,48 @@ class _UploadScreenState extends State<UploadScreen> {
     List<String> lines = text.split('\n');
     bool foundIngredients = false;
     StringBuffer ingredients = StringBuffer();
+    
+    // Enhanced patterns for both English and French
+    final ingredientHeaders = [
+      'ingredients', 'ingrédients', 'contains', 'contient', 'composition',
+      'liste des ingrédients', 'liste d\'ingrédients'
+    ];
+    
+    final endPatterns = [
+      'nutrition', 'nutritional', 'valeurs nutritionnelles', 'valeur nutritive',
+      'net weight', 'poids net', 'best before', 'à consommer avant',
+      'store in', 'conserver dans', 'keep refrigerated', 'garder réfrigéré'
+    ];
+    
     for (String line in lines) {
       line = line.trim().toLowerCase();
-      if (line.contains('ingredients') || line.contains('ingrédients') ||
-          line.contains('contains') || line.contains('contient')) {
+      
+      // Check if this line is an ingredient header
+      bool isHeader = ingredientHeaders.any((header) => line.contains(header));
+      if (isHeader) {
         foundIngredients = true;
-      } else if (foundIngredients && line.isNotEmpty && !line.contains('nutrition') &&
-                 !line.contains('net weight')) {
+        // Include the header line itself
         ingredients.write('$line\n');
-      } else if (line.isEmpty) {
+        continue;
+      }
+      
+      // Check if we should stop collecting ingredients
+      bool isEndSection = endPatterns.any((pattern) => line.contains(pattern));
+      if (foundIngredients && isEndSection) {
         foundIngredients = false;
+        continue;
+      }
+      
+      // Add ingredient lines
+      if (foundIngredients && line.isNotEmpty) {
+        ingredients.write('$line\n');
+      } else if (line.isEmpty && foundIngredients) {
+        // Empty line might indicate end of section, but don't immediately stop
+        // in case there are multi-paragraph ingredients
+        ingredients.write('\n');
       }
     }
+    
     return ingredients.toString().trim();
   }
 

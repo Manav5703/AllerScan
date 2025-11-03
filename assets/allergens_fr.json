@@ -1,0 +1,144 @@
+{
+    "lait": {
+        "synonyms": [
+            "lait",
+            "produits laitiers",
+            "lactose",
+            "lactosérum",
+            "caséine",
+            "beurre",
+            "crème",
+            "fromage",
+            "yaourt",
+            "yogourt",
+            "petit-lait"
+        ]
+    },
+    "oeufs": {
+        "synonyms": [
+            "œuf",
+            "œufs",
+            "blanc d'œuf",
+            "jaune d'œuf",
+            "albumine",
+            "ovalbumine",
+            "lysozyme",
+            "lécithine d'œuf"
+        ]
+    },
+    "arachides": {
+        "synonyms": [
+            "arachide",
+            "arachides",
+            "cacahuète",
+            "cacahuètes",
+            "beurre d'arachide",
+            "huile d'arachide"
+        ]
+    },
+    "noix": {
+        "synonyms": [
+            "amande",
+            "amandes",
+            "noix",
+            "noix de cajou",
+            "pistache",
+            "pistaches",
+            "noisette",
+            "noisettes",
+            "pacane",
+            "pacanes",
+            "noix du brésil",
+            "macadamia",
+            "pignon",
+            "pignons"
+        ]
+    },
+    "soja": {
+        "synonyms": [
+            "soja",
+            "haricot de soja",
+            "haricots de soja",
+            "sauce soja",
+            "lécithine de soja",
+            "protéine de soja",
+            "tofu",
+            "tempeh",
+            "miso"
+        ]
+    },
+    "blé": {
+        "synonyms": [
+            "blé",
+            "farine",
+            "pain",
+            "pâtes",
+            "céréales",
+            "gluten",
+            "farine de blé",
+            "farine tout usage",
+            "blé entier",
+            "blé dur",
+            "semoule",
+            "couscous",
+            "boulgour"
+        ]
+    },
+    "poisson": {
+        "synonyms": [
+            "poisson",
+            "saumon",
+            "thon",
+            "morue",
+            "églefin",
+            "flétan",
+            "sardine",
+            "anchois",
+            "sauce de poisson",
+            "huile de poisson"
+        ]
+    },
+    "crustacés": {
+        "synonyms": [
+            "crustacés",
+            "crevette",
+            "crabe",
+            "homard",
+            "moule",
+            "huître",
+            "palourde",
+            "coquille saint-jacques",
+            "calmar",
+            "poulpe"
+        ]
+    },
+    "sésame": {
+        "synonyms": [
+            "sésame",
+            "graine de sésame",
+            "huile de sésame",
+            "tahini",
+            "halva"
+        ]
+    },
+    "moutarde": {
+        "synonyms": [
+            "moutarde",
+            "graine de moutarde",
+            "huile de moutarde",
+            "poudre de moutarde",
+            "feuilles de moutarde"
+        ]
+    },
+    "sulfites": {
+        "synonyms": [
+            "sulfites",
+            "dioxyde de soufre",
+            "sulfite de sodium",
+            "bisulfite de sodium",
+            "métabisulfite de sodium",
+            "sulfite de potassium",
+            "bisulfite de potassium"
+        ]
+    }
+}

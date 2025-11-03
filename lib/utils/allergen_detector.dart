@@ -42,6 +42,33 @@ class AllergenDictionary {
     });
     return AllergenDictionary(dict);
   }
+  
+  static Future<AllergenDictionary> loadFrench() async {
+    try {
+      print('Attempting to load French allergen dictionary...');
+      final data = await rootBundle.loadString('assets/allergens_fr.json');
+      print('French allergen dictionary loaded successfully');
+      
+      final map = json.decode(data) as Map<String, dynamic>;
+      final dict = <String, List<String>>{};
+      map.forEach((k, v) {
+        final terms = (v['synonyms'] as List).cast<String>()
+            .map((t) => TextNormalization.normalizeForMatching(t))
+            .toList();
+        // Prefer longer phrases first
+        terms.sort((a, b) => b.length.compareTo(a.length));
+        dict[k] = terms;
+      });
+      
+      print('French dictionary processed with ${dict.length} allergens: ${dict.keys.toList()}');
+      return AllergenDictionary(dict);
+    } catch (e) {
+      print('ERROR loading French allergen dictionary: $e');
+      // Fallback to English dictionary if French fails to load
+      print('Falling back to English dictionary');
+      return loadEnglish();
+    }
+  }
 }
 
 class AllergenDetector {
@@ -51,14 +78,28 @@ class AllergenDetector {
   AllergenDetector(this.dict, {this.enableFuzzy = true});
 
   List<AllergenHit> detect(String rawText) {
+    print('AllergenDetector.detect called with text length: ${rawText.length}');
+    print('Dictionary contains ${dict.allergenToTerms.length} allergens with keys: ${dict.allergenToTerms.keys.toList()}');
+    
     final lines = TextNormalization.splitLines(rawText);
+    print('Split into ${lines.length} lines');
     final normalizedLines = lines.map(TextNormalization.normalizeForMatching).toList();
 
     final hits = <AllergenHit>[];
     for (int i = 0; i < normalizedLines.length; i++) {
       final line = normalizedLines[i];
       final label = _classifySection(line);
-      if (label.isEmpty && !_isLikelyIngredientsContext(normalizedLines, i)) continue;
+      print('Line $i: "${lines[i].trim()}" classified as: "$label"');
+      
+      final isIngredientsContext = _isLikelyIngredientsContext(normalizedLines, i);
+      if (label.isEmpty && !isIngredientsContext) {
+        print('  Skipping line $i - not a relevant section and not in ingredients context');
+        continue;
+      }
+      
+      if (isIngredientsContext) {
+        print('  Line $i is in ingredients context');
+      }
 
       final section = label.isNotEmpty ? label : "ingredients";
       final hard = section == "contains";
@@ -69,9 +110,11 @@ class AllergenDetector {
       final finalConfidence = baseConfidence * contextMultiplier;
 
       dict.allergenToTerms.forEach((allergen, terms) {
+        print('  Checking for allergen: $allergen with ${terms.length} terms');
         for (final term in terms) {
           final idx = line.indexOf(term);
           if (idx >= 0) {
+            print('    MATCH: Found "$term" in line at position $idx');
             hits.add(AllergenHit(
               allergenKey: allergen,
               matchedTerm: term,
@@ -204,12 +247,19 @@ class AllergenDetector {
   }
 
   bool _looksLikeIngredients(String line) {
-    // Common ingredient list patterns
+    // Common ingredient list patterns in English and French
     final ingredientIndicators = [
+      // English ingredients
       'wheat flour', 'sugar', 'salt', 'water', 'oil', 'corn', 'rice',
       'milk powder', 'egg', 'soy', 'modified', 'artificial', 'natural',
       'preservative', 'color', 'flavor', 'extract', 'syrup', 'protein',
-      'starch', 'gum', 'lecithin', 'citric', 'sodium', 'calcium', 'potassium'
+      'starch', 'gum', 'lecithin', 'citric', 'sodium', 'calcium', 'potassium',
+      
+      // French ingredients
+      'farine de blé', 'sucre', 'sel', 'eau', 'huile', 'maïs', 'riz',
+      'lait en poudre', 'œuf', 'soja', 'modifié', 'artificiel', 'naturel',
+      'conservateur', 'colorant', 'arôme', 'extrait', 'sirop', 'protéine',
+      'amidon', 'gomme', 'lécithine', 'acide citrique', 'sodium', 'calcium', 'potassium'
     ];
 
     final lowerLine = line.toLowerCase();
@@ -226,15 +276,19 @@ class AllergenDetector {
   }
 
   String _classifySection(String line) {
-    // Enhanced "contains" patterns
+    // Enhanced "contains" patterns - English and French
     if (line.contains('contains:') || line.startsWith('contains ') ||
         line.contains('contains,') || line.contains('contains.') ||
-        line.contains('allergens:') || line.startsWith('allergens ')) {
+        line.contains('allergens:') || line.startsWith('allergens ') ||
+        line.contains('contient:') || line.startsWith('contient ') ||
+        line.contains('contient,') || line.contains('contient.') ||
+        line.contains('allergènes:') || line.startsWith('allergènes ')) {
       return 'contains';
     }
 
-    // Enhanced "may contain" patterns - more comprehensive detection
+    // Enhanced "may contain" patterns - more comprehensive detection in English and French
     final mayContainPatterns = [
+      // English patterns
       'may contain',
       'may also contain',
       'may be present',
@@ -257,6 +311,29 @@ class AllergenDetector {
       'could contain',
       'sometimes contains',
       'occasionally contains',
+      
+      // French patterns
+      'peut contenir',
+      'peut également contenir',
+      'peut être présent',
+      'traces possibles',
+      'traces de',
+      'quantités traces',
+      'produit dans une installation',
+      'fabriqué dans une installation',
+      'peut avoir été en contact',
+      'contamination croisée possible',
+      'contamination croisée',
+      'information sur les allergènes',
+      'information sur les allergies',
+      'conseil d\'allergie',
+      'avertissement: peut contenir',
+      'attention: peut contenir',
+      'note: peut contenir',
+      'peut inclure',
+      'pourrait contenir',
+      'contient parfois',
+      'contient occasionnellement',
     ];
 
     final lowerLine = line.toLowerCase();
@@ -266,10 +343,12 @@ class AllergenDetector {
       }
     }
 
-    // Enhanced ingredients patterns
+    // Enhanced ingredients patterns - English and French
     if (line.startsWith('ingredients') || line.contains('ingredients:') ||
         line.startsWith('ingrédients') || line.contains('ingrédients:') ||
-        line.contains('ingredient list') || line.contains('list of ingredients')) {
+        line.contains('ingredient list') || line.contains('list of ingredients') ||
+        line.contains('liste des ingrédients') || line.contains('liste d\'ingrédients') ||
+        line.contains('composition') || line.contains('composition:')) {
       return 'ingredients';
     }
 
@@ -278,9 +357,16 @@ class AllergenDetector {
 
   bool _negated(String originalLine) {
     final s = TextNormalization.normalizeBasic(originalLine);
+    // English negation patterns
     if (s.contains('free from ') || s.contains('free-from ')) return true;
     if (s.contains('does not contain')) return true;
     if (s.contains('without ')) return true;
+    
+    // French negation patterns
+    if (s.contains('sans ') || s.contains('exempt de ')) return true;
+    if (s.contains('ne contient pas')) return true;
+    if (s.contains('libre de ')) return true;
+    
     return false;
   }
 

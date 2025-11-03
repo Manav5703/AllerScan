@@ -26,18 +26,48 @@ class TextNormalization {
   }
 
   static String normalizeForMatching(String input) {
+    // More comprehensive replacements, especially for French terms
     final replacements = <String, String>{
+      // Common OCR errors
       'peamut': 'peanut',
-      'arachide': 'peanut',
-      'oeuf': 'egg',
-      'soyabean': 'soybean',
       'vheat': 'wheat',
-      'gluen': 'gluten'
+      'gluen': 'gluten',
+      'soyabean': 'soybean',
+      
+      // French to English mappings for better matching
+      'arachide': 'peanut',
+      'arachides': 'peanut',
+      'cacahuete': 'peanut',
+      'cacahuetes': 'peanut',
+      'oeuf': 'egg',
+      'oeufs': 'egg',
+      'lait': 'milk',
+      'soja': 'soy',
+      'ble': 'wheat',
+      'farine': 'flour',
+      'poisson': 'fish',
+      'crustace': 'shellfish',
+      'crustaces': 'shellfish',
+      'sesame': 'sesame',
+      'moutarde': 'mustard',
+      'sulfite': 'sulphite',
+      'sulfites': 'sulphites',
+      'noix': 'nut'
     };
+    
     String s = normalizeBasic(input);
+    String original = s;
+    
     replacements.forEach((k, v) {
-      s = s.replaceAll(k, v);
+      if (s.contains(k)) {
+        s = s.replaceAll(k, v);
+      }
     });
+    
+    if (original != s) {
+      print('TEXT NORMALIZED: "$original" -> "$s"');
+    }
+    
     return s;
   }
 

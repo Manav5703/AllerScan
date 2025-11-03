@@ -22,7 +22,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _nameController = TextEditingController();
   final _customAllergenController = TextEditingController();
 
-  final Map<String, String> _availableAllergens = {
+  // Allergen labels will be loaded based on selected language
+  Map<String, String> _availableAllergens = {};
+  
+  // English allergen labels
+  final Map<String, String> _englishAllergens = {
     'milk': '🥛 Milk & Dairy',
     'eggs': '🥚 Eggs',
     'peanuts': '🥜 Peanuts',
@@ -34,6 +38,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'sesame': '🫘 Sesame',
     'mustard': '🌭 Mustard',
     'sulphites': '🧪 Sulphites',
+  };
+  
+  // French allergen labels
+  final Map<String, String> _frenchAllergens = {
+    'milk': '🥛 Lait & Produits laitiers',
+    'eggs': '🥚 Œufs',
+    'peanuts': '🥜 Arachides',
+    'tree_nuts': '🌰 Noix',
+    'soy': '🫘 Soja',
+    'wheat': '🌾 Blé/Gluten',
+    'fish': '🐟 Poisson',
+    'shellfish': '🦐 Crustacés',
+    'sesame': '🫘 Sésame',
+    'mustard': '🌭 Moutarde',
+    'sulphites': '🧪 Sulfites',
   };
 
   Set<String> _selectedAllergens = {};
@@ -49,6 +68,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+  }
+  
+  void _updateAllergenLabels() {
+    setState(() {
+      _availableAllergens = _selectedLanguage == 'fr' 
+          ? Map.from(_frenchAllergens)
+          : Map.from(_englishAllergens);
+    });
+    print('Profile screen: Allergen labels updated for language: $_selectedLanguage');
   }
 
   @override
@@ -71,8 +99,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _avatarPhotoPath = profile.avatarPhotoPath;
         _isLoading = false;
       });
+      
+      // Update allergen labels based on loaded language
+      _updateAllergenLabels();
+      print('Profile loaded with language: ${profile.language}');
     } else {
       setState(() => _isLoading = false);
+      // Default to English allergen labels
+      _availableAllergens = Map.from(_englishAllergens);
     }
   }
 
@@ -724,7 +758,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildLanguageOption(String code, String name, String flag) {
     final isSelected = _selectedLanguage == code;
     return InkWell(
-      onTap: () => setState(() => _selectedLanguage = code),
+      onTap: () {
+        setState(() => _selectedLanguage = code);
+        // Update allergen labels when language changes
+        _updateAllergenLabels();
+      },
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(12),

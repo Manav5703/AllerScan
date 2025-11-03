@@ -29,3 +29,5 @@ flutter:
     - assets/tessdata_config.json
     - assets/tessdata/
     - assets/allergens_en.json
+    - assets/allergens_fr.json
+    - assets/allergens_fr_ui.json

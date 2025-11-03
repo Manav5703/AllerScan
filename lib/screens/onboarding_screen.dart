@@ -17,8 +17,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _customAllergenController = TextEditingController();
   final ProfileService _profileService = ProfileService();
 
-  // Available allergens based on the allergens_en.json
-  final Map<String, String> _availableAllergens = {
+  // Allergen labels will be loaded based on selected language
+  Map<String, String> _availableAllergens = {};
+  
+  // English allergen labels
+  final Map<String, String> _englishAllergens = {
     'milk': '🥛 Milk & Dairy',
     'eggs': '🥚 Eggs',
     'peanuts': '🥜 Peanuts',
@@ -30,6 +33,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'sesame': '🫘 Sesame',
     'mustard': '🌭 Mustard',
     'sulphites': '🧪 Sulphites',
+  };
+  
+  // French allergen labels
+  final Map<String, String> _frenchAllergens = {
+    'milk': '🥛 Lait & Produits laitiers',
+    'eggs': '🥚 Œufs',
+    'peanuts': '🥜 Arachides',
+    'tree_nuts': '🌰 Noix',
+    'soy': '🫘 Soja',
+    'wheat': '🌾 Blé/Gluten',
+    'fish': '🐟 Poisson',
+    'shellfish': '🦐 Crustacés',
+    'sesame': '🫘 Sésame',
+    'mustard': '🌭 Moutarde',
+    'sulphites': '🧪 Sulfites',
   };
 
   final Set<String> _selectedAllergens = {};
@@ -43,6 +61,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<String> _avatarOptions = ['👤', '👨', '👩', '🧑', '👦', '👧', '🧔', '👱‍♀️', '👱‍♂️'];
 
   @override
+  void initState() {
+    super.initState();
+    // Initialize allergens based on default language
+    _updateAllergenLabels();
+  }
+  
+  void _updateAllergenLabels() {
+    setState(() {
+      _availableAllergens = _selectedLanguage == 'fr' 
+          ? Map.from(_frenchAllergens)
+          : Map.from(_englishAllergens);
+    });
+    print('Allergen labels updated for language: $_selectedLanguage');
+  }
+  
+  @override
   void dispose() {
     _nameController.dispose();
     _customAllergenController.dispose();
@@ -54,7 +88,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (_formKey.currentState!.validate()) {
         setState(() => _currentStep++);
       }
-    } else if (_currentStep < 2) {
+    } else if (_currentStep == 1) {
+      // After language selection, update allergen labels before moving to allergen selection
+      _updateAllergenLabels();
+      setState(() => _currentStep++);
+    } else if (_currentStep < 3) {
       setState(() => _currentStep++);
     } else {
       _saveProfile();
@@ -134,7 +172,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           children: [
             // Progress indicator
             LinearProgressIndicator(
-              value: (_currentStep + 1) / 3,
+              value: (_currentStep + 1) / 4,
               backgroundColor: Colors.grey[200],
               valueColor: AlwaysStoppedAnimation<Color>(Colors.teal.shade600),
             ),
@@ -157,8 +195,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       case 0:
         return _buildWelcomeStep();
       case 1:
-        return _buildAllergenSelectionStep();
+        return _buildLanguageSelectionStep();
       case 2:
+        return _buildAllergenSelectionStep();
+      case 3:
         return _buildPreferencesStep();
       default:
         return _buildWelcomeStep();
@@ -494,6 +534,66 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  Widget _buildLanguageSelectionStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        const Text(
+          'Choose Your Language',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Select your preferred language for allergen detection',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.black54,
+          ),
+        ),
+        const SizedBox(height: 32),
+        Row(
+          children: [
+            Expanded(
+              child: _buildLanguageOption('en', 'English', '🇬🇧'),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildLanguageOption('fr', 'Français', '🇫🇷'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue.shade700),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _selectedLanguage == 'fr' 
+                      ? 'Les allergènes seront affichés en français et la détection fonctionnera mieux avec les étiquettes en français.'
+                      : 'Allergens will be displayed in English and detection will work best with English labels.',
+                  style: TextStyle(color: Colors.blue.shade900),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  
   Widget _buildPreferencesStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,32 +609,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Set your preferences',
+          'Review your profile',
           style: TextStyle(
             fontSize: 14,
             color: Colors.black54,
           ),
-        ),
-        const SizedBox(height: 32),
-        const Text(
-          'Preferred Language',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildLanguageOption('en', 'English', '🇬🇧'),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildLanguageOption('fr', 'Français', '🇫🇷'),
-            ),
-          ],
         ),
         const SizedBox(height: 32),
         const Text(
@@ -554,7 +633,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildLanguageOption(String code, String name, String flag) {
     final isSelected = _selectedLanguage == code;
     return InkWell(
-      onTap: () => setState(() => _selectedLanguage = code),
+      onTap: () {
+        setState(() => _selectedLanguage = code);
+        // Update allergen labels when language changes
+        _updateAllergenLabels();
+      },
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -608,6 +691,37 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _selectedLanguage == 'fr' ? '🇫🇷' : '🇬🇧',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _selectedLanguage == 'fr' ? 'Français' : 'English',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blue.shade900,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
