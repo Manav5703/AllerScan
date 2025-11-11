@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
 import 'screens/upload_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/profile_service.dart';
+import 'services/language_provider.dart';
 
 void main() {
-  runApp(const AllerScanApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) {
+        final provider = LanguageProvider();
+        provider.loadSavedLanguage();
+        return provider;
+      },
+      child: const AllerScanApp(),
+    ),
+  );
 }
 
 class AllerScanApp extends StatelessWidget {
@@ -15,8 +26,11 @@ class AllerScanApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final languageProvider = context.watch<LanguageProvider>();
+    final strings = languageProvider.strings;
+
     return MaterialApp(
-      title: 'AllerScan',
+      title: strings['appTitle'] ?? 'AllerScan',
       theme: ThemeData(
         primaryColor: Colors.teal.shade600,
         scaffoldBackgroundColor: Colors.white,
@@ -70,6 +84,12 @@ class _InitialScreenState extends State<InitialScreen> {
 
   Future<void> _checkOnboardingStatus() async {
     await Future.delayed(const Duration(milliseconds: 500)); // Brief splash
+    try {
+      final profile = await _profileService.loadProfile();
+      if (profile != null && profile.language.isNotEmpty && mounted) {
+        await context.read<LanguageProvider>().changeLanguage(profile.language);
+      }
+    } catch (_) {}
     final hasCompleted = await _profileService.hasCompletedOnboarding();
     
     if (!mounted) return;
@@ -83,6 +103,7 @@ class _InitialScreenState extends State<InitialScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.watch<LanguageProvider>().strings;
     return Scaffold(
       body: Center(
         child: Column(
@@ -94,9 +115,9 @@ class _InitialScreenState extends State<InitialScreen> {
               color: Colors.teal.shade600,
             ),
             const SizedBox(height: 20),
-            const Text(
-              'AllerScan',
-              style: TextStyle(
+            Text(
+              strings['initialLoadingText'] ?? 'AllerScan',
+              style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.w600,
                 color: Colors.teal,

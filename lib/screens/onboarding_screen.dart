@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
+import '../services/language_provider.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -19,61 +20,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   // Allergen labels will be loaded based on selected language
   Map<String, String> _availableAllergens = {};
-  
-  // English allergen labels
-  final Map<String, String> _englishAllergens = {
-    'milk': '🥛 Milk & Dairy',
-    'eggs': '🥚 Eggs',
-    'peanuts': '🥜 Peanuts',
-    'tree_nuts': '🌰 Tree Nuts',
-    'soy': '🫘 Soy',
-    'wheat': '🌾 Wheat/Gluten',
-    'fish': '🐟 Fish',
-    'shellfish': '🦐 Shellfish',
-    'sesame': '🫘 Sesame',
-    'mustard': '🌭 Mustard',
-    'sulphites': '🧪 Sulphites',
-  };
-  
-  // French allergen labels
-  final Map<String, String> _frenchAllergens = {
-    'milk': '🥛 Lait & Produits laitiers',
-    'eggs': '🥚 Œufs',
-    'peanuts': '🥜 Arachides',
-    'tree_nuts': '🌰 Noix',
-    'soy': '🫘 Soja',
-    'wheat': '🌾 Blé/Gluten',
-    'fish': '🐟 Poisson',
-    'shellfish': '🦐 Crustacés',
-    'sesame': '🫘 Sésame',
-    'mustard': '🌭 Moutarde',
-    'sulphites': '🧪 Sulfites',
-  };
 
   final Set<String> _selectedAllergens = {};
   final List<String> _customAllergens = [];
   String _selectedLanguage = 'en';
   String? _selectedAvatar;
-  String? _avatarPhotoPath;
   int _currentStep = 0;
-  final ImagePicker _picker = ImagePicker();
 
   final List<String> _avatarOptions = ['👤', '👨', '👩', '🧑', '👦', '👧', '🧔', '👱‍♀️', '👱‍♂️'];
 
   @override
   void initState() {
     super.initState();
-    // Initialize allergens based on default language
-    _updateAllergenLabels();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<LanguageProvider>();
+      setState(() {
+        _selectedLanguage = provider.currentLanguage;
+        _availableAllergens = Map.from(provider.allergenLabels);
+      });
+    });
   }
   
   void _updateAllergenLabels() {
+    final provider = context.read<LanguageProvider>();
     setState(() {
-      _availableAllergens = _selectedLanguage == 'fr' 
-          ? Map.from(_frenchAllergens)
-          : Map.from(_englishAllergens);
+      _availableAllergens = Map.from(provider.allergenLabels);
     });
-    print('Allergen labels updated for language: $_selectedLanguage');
+    debugPrint('Allergen labels updated for language: $_selectedLanguage');
   }
   
   @override
@@ -105,22 +78,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  Future<void> _pickProfilePhoto() async {
-    final XFile? image = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
-    
-    if (image != null) {
-      setState(() {
-        _avatarPhotoPath = image.path;
-        _selectedAvatar = null; // Clear emoji selection
-      });
-    }
-  }
-
   Future<void> _saveProfile() async {
     final profile = UserProfile(
       name: _nameController.text.trim(),
@@ -128,7 +85,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       customAllergens: _customAllergens,
       language: _selectedLanguage,
       avatarEmoji: _selectedAvatar,
-      avatarPhotoPath: _avatarPhotoPath,
+      avatarPhotoPath: null,
     );
 
     final success = await _profileService.saveProfile(profile);
@@ -136,11 +93,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (!mounted) return;
     
     if (success) {
+      final languageProvider = context.read<LanguageProvider>();
+      await languageProvider.changeLanguage(_selectedLanguage);
+      _updateAllergenLabels();
       Navigator.of(context).pushReplacementNamed('/home');
     } else {
+      final languageProvider = context.read<LanguageProvider>();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to save profile. Please try again.'),
+        SnackBar(
+          content: Text(languageProvider.text('profileSaveFailed')),
           backgroundColor: Colors.red,
         ),
       );
@@ -149,18 +110,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _addCustomAllergen() {
     final allergen = _customAllergenController.text.trim();
-    if (allergen.isNotEmpty && !_customAllergens.contains(allergen)) {
+    if (allergen.isNotEmpty) {
       setState(() {
-        _customAllergens.add(allergen);
         _customAllergenController.clear();
       });
     }
   }
 
   void _removeCustomAllergen(String allergen) {
-    setState(() {
-      _customAllergens.remove(allergen);
-    });
+    setState(() {});
   }
 
   @override
@@ -206,6 +164,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildWelcomeStep() {
+    final strings = context.watch<LanguageProvider>().strings;
     return Form(
       key: _formKey,
       child: Column(
@@ -220,10 +179,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          const Center(
+          Center(
             child: Text(
-              'Welcome to AllerScan',
-              style: TextStyle(
+              strings['welcomeTitle'] ?? 'Welcome to AllerScan',
+              style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
@@ -232,10 +191,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Center(
+          Center(
             child: Text(
-              'Your personal allergy detection assistant',
-              style: TextStyle(
+              strings['welcomeSubtitle'] ?? 'Your personal allergy detection assistant',
+              style: const TextStyle(
                 fontSize: 16,
                 color: Colors.black54,
               ),
@@ -243,101 +202,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
           const SizedBox(height: 48),
-          const Text(
-            'Choose your avatar',
-            style: TextStyle(
+          Text(
+            strings['chooseEmojiAvatar'] ?? 'Choose an emoji avatar',
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Custom photo option
-          GestureDetector(
-            onTap: _pickProfilePhoto,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _avatarPhotoPath != null ? Colors.teal.shade50 : Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _avatarPhotoPath != null ? Colors.teal.shade600 : Colors.grey[300]!,
-                  width: 2,
-                ),
-              ),
-              child: Row(
-                children: [
-                  if (_avatarPhotoPath != null)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        File(_avatarPhotoPath!),
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  else
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(Icons.add_a_photo, color: Colors.grey[600]),
-                    ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _avatarPhotoPath != null ? 'Custom Photo Selected' : 'Upload Custom Photo',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: _avatarPhotoPath != null ? Colors.teal.shade700 : Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _avatarPhotoPath != null ? 'Tap to change' : 'Choose from gallery',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey[400],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Center(
-            child: Text(
-              'OR',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black54,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Choose an emoji avatar',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.black54,
             ),
           ),
           const SizedBox(height: 12),
@@ -345,11 +215,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             spacing: 12,
             runSpacing: 12,
             children: _avatarOptions.map((emoji) {
-              final isSelected = _selectedAvatar == emoji && _avatarPhotoPath == null;
+              final isSelected = _selectedAvatar == emoji;
               return GestureDetector(
                 onTap: () => setState(() {
                   _selectedAvatar = emoji;
-                  _avatarPhotoPath = null; // Clear photo selection
                 }),
                 child: Container(
                   width: 60,
@@ -373,9 +242,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             }).toList(),
           ),
           const SizedBox(height: 32),
-          const Text(
-            'What\'s your name?',
-            style: TextStyle(
+          Text(
+            strings['whatsYourName'] ?? "What's your name?",
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
@@ -385,7 +254,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           TextFormField(
             controller: _nameController,
             decoration: InputDecoration(
-              hintText: 'Enter your name',
+              hintText: strings['enterYourName'] ?? 'Enter your name',
               prefixIcon: const Icon(Icons.person_outline),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -397,7 +266,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return 'Please enter your name';
+                return strings['pleaseEnterYourName'] ?? 'Please enter your name';
               }
               return null;
             },
@@ -408,22 +277,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildAllergenSelectionStep() {
+    final strings = context.watch<LanguageProvider>().strings;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
-        const Text(
-          'Select Your Allergens',
-          style: TextStyle(
+        Text(
+          strings['selectYourAllergens'] ?? 'Select Your Allergens',
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Choose all allergens you need to avoid',
-          style: TextStyle(
+        Text(
+          strings['chooseAllAllergens'] ?? 'Choose all allergens you need to avoid',
+          style: const TextStyle(
             fontSize: 14,
             color: Colors.black54,
           ),
@@ -480,9 +350,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         }).toList(),
         const SizedBox(height: 24),
         // Custom allergens section
-        const Text(
-          'Add Custom Allergens',
-          style: TextStyle(
+        Text(
+          strings['addCustomAllergens'] ?? 'Add Custom Allergens',
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
@@ -495,7 +365,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: TextField(
                 controller: _customAllergenController,
                 decoration: InputDecoration(
-                  hintText: 'e.g., Corn, Celery',
+                  hintText: strings['hintCustomAllergens'] ?? 'e.g., Corn, Celery',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -514,43 +384,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ],
         ),
-        if (_customAllergens.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _customAllergens.map((allergen) {
-              return Chip(
-                label: Text(allergen),
-                deleteIcon: const Icon(Icons.close, size: 18),
-                onDeleted: () => _removeCustomAllergen(allergen),
-                backgroundColor: Colors.orange.shade100,
-                deleteIconColor: Colors.orange.shade900,
-              );
-            }).toList(),
-          ),
-        ],
       ],
     );
   }
 
   Widget _buildLanguageSelectionStep() {
+    final languageProvider = context.watch<LanguageProvider>();
+    final strings = languageProvider.strings;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
-        const Text(
-          'Choose Your Language',
-          style: TextStyle(
+        Text(
+          strings['chooseLanguage'] ?? 'Choose Your Language',
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Select your preferred language for allergen detection',
-          style: TextStyle(
+        Text(
+          strings['languageHelp'] ?? 'Select your preferred language for allergen detection',
+          style: const TextStyle(
             fontSize: 14,
             color: Colors.black54,
           ),
@@ -581,9 +437,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _selectedLanguage == 'fr' 
-                      ? 'Les allergènes seront affichés en français et la détection fonctionnera mieux avec les étiquettes en français.'
-                      : 'Allergens will be displayed in English and detection will work best with English labels.',
+                  _selectedLanguage == 'fr'
+                      ? strings['languageInfoFr'] ?? 'Les allergènes seront affichés en français et la détection fonctionnera mieux avec les étiquettes en français.'
+                      : strings['languageInfo'] ?? 'Allergens will be displayed in English and detection will work best with English labels.',
                   style: TextStyle(color: Colors.blue.shade900),
                 ),
               ),
@@ -595,30 +451,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
   
   Widget _buildPreferencesStep() {
+    final strings = context.watch<LanguageProvider>().strings;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
-        const Text(
-          'Almost Done!',
-          style: TextStyle(
+        Text(
+          strings['almostDone'] ?? 'Almost Done!',
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Review your profile',
-          style: TextStyle(
+        Text(
+          strings['reviewYourProfile'] ?? 'Review your profile',
+          style: const TextStyle(
             fontSize: 14,
             color: Colors.black54,
           ),
         ),
         const SizedBox(height: 32),
-        const Text(
-          'Summary',
-          style: TextStyle(
+        Text(
+          strings['summary'] ?? 'Summary',
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
@@ -633,9 +490,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildLanguageOption(String code, String name, String flag) {
     final isSelected = _selectedLanguage == code;
     return InkWell(
-      onTap: () {
+      onTap: () async {
         setState(() => _selectedLanguage = code);
-        // Update allergen labels when language changes
+        await context.read<LanguageProvider>().changeLanguage(code);
         _updateAllergenLabels();
       },
       borderRadius: BorderRadius.circular(12),
@@ -652,7 +509,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Column(
           children: [
             Text(flag, style: const TextStyle(fontSize: 32)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
             Text(
               name,
               style: TextStyle(
@@ -668,6 +525,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildSummaryCard() {
+    final strings = context.watch<LanguageProvider>().strings;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -714,7 +572,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      _selectedLanguage == 'fr' ? 'Français' : 'English',
+                      _selectedLanguage == 'fr'
+                          ? strings['languageFrench'] ?? 'Français'
+                          : strings['languageEnglish'] ?? 'English',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -727,9 +587,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Allergens to avoid:',
-            style: TextStyle(
+          Text(
+            strings['allergensToAvoid'] ?? 'Allergens to avoid:',
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Colors.black54,
@@ -737,9 +597,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 8),
           if (_selectedAllergens.isEmpty && _customAllergens.isEmpty)
-            const Text(
-              'None selected',
-              style: TextStyle(color: Colors.black54, fontStyle: FontStyle.italic),
+            Text(
+              strings['noneSelected'] ?? 'None selected',
+              style: const TextStyle(color: Colors.black54, fontStyle: FontStyle.italic),
             )
           else
             Wrap(

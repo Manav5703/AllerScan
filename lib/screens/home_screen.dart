@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
+import '../services/language_provider.dart';
 import '../widgets/avatar_display.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -15,20 +17,6 @@ class _HomeScreenState extends State<HomeScreen> {
   UserProfile? _profile;
   bool _isLoading = true;
 
-  final Map<String, String> _availableAllergens = {
-    'milk': '🥛 Milk',
-    'eggs': '🥚 Eggs',
-    'peanuts': '🥜 Peanuts',
-    'tree_nuts': '🌰 Tree Nuts',
-    'soy': '🫘 Soy',
-    'wheat': '🌾 Wheat',
-    'fish': '🐟 Fish',
-    'shellfish': '🦐 Shellfish',
-    'sesame': '🫘 Sesame',
-    'mustard': '🌭 Mustard',
-    'sulphites': '🧪 Sulphites',
-  };
-
   @override
   void initState() {
     super.initState();
@@ -37,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadProfile() async {
     final profile = await _profileService.loadProfile();
+    if (!mounted) return;
     setState(() {
       _profile = profile;
       _isLoading = false;
@@ -45,9 +34,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final languageProvider = context.watch<LanguageProvider>();
+    final strings = languageProvider.strings;
+    final availableAllergens = languageProvider.allergenLabels;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AllerScan'),
+        title: Text(strings['appTitle'] ?? 'AllerScan'),
         actions: [
           IconButton(
             icon: const Icon(Icons.person),
@@ -77,15 +69,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Welcome back,',
-                              style: TextStyle(
+                            Text(
+                              strings['homeWelcomeBack'] ?? 'Welcome back,',
+                              style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.black54,
                               ),
                             ),
                             Text(
-                              _profile?.name ?? 'User',
+                              _profile?.name ?? strings['homeDefaultUser'] ?? 'User',
                               style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -115,9 +107,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 24),
                               const SizedBox(width: 8),
-                              const Text(
-                                'Your Allergens',
-                                style: TextStyle(
+                              Text(
+                                strings['homeYourAllergens'] ?? 'Your Allergens',
+                                style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.black87,
@@ -132,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               ..._profile!.allergens.map((key) => Chip(
                                     label: Text(
-                                      _availableAllergens[key] ?? key,
+                                      availableAllergens[key] ?? key,
                                       style: const TextStyle(fontSize: 12),
                                     ),
                                     backgroundColor: Colors.red.shade100,
@@ -179,19 +171,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.pushNamed(context, '/upload');
                           },
                           borderRadius: BorderRadius.circular(20),
-                          child: const Center(
+                          child: Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.camera_alt,
                                   size: 60,
                                   color: Colors.white,
                                 ),
                                 SizedBox(height: 16),
                                 Text(
-                                  'Scan Product Label',
-                                  style: TextStyle(
+                                  strings['homeScanTitle'] ?? 'Scan Product Label',
+                                  style: const TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
@@ -199,8 +191,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 SizedBox(height: 8),
                                 Text(
-                                  'Take a photo or upload an image',
-                                  style: TextStyle(
+                                  strings['homeScanSubtitle'] ?? 'Take a photo or upload an image',
+                                  style: const TextStyle(
                                     fontSize: 14,
                                     color: Colors.white70,
                                   ),
@@ -216,9 +208,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 32),
                   
                   // Info cards
-                  const Text(
-                    'How it works',
-                    style: TextStyle(
+                  Text(
+                    strings['homeHowItWorks'] ?? 'How it works',
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
@@ -227,22 +219,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 16),
                   _buildInfoCard(
                     icon: Icons.photo_camera,
-                    title: '1. Capture',
-                    description: 'Take a photo of the ingredient label',
+                    title: strings['homeStep1Title'] ?? '1. Capture',
+                    description: strings['homeStep1Description'] ?? 'Take a photo of the ingredient label',
                     color: Colors.blue,
                   ),
                   const SizedBox(height: 12),
                   _buildInfoCard(
                     icon: Icons.search,
-                    title: '2. Analyze',
-                    description: 'We scan for allergens in the ingredients',
+                    title: strings['homeStep2Title'] ?? '2. Analyze',
+                    description: strings['homeStep2Description'] ?? 'We scan for allergens in the ingredients',
                     color: Colors.orange,
                   ),
                   const SizedBox(height: 12),
                   _buildInfoCard(
                     icon: Icons.check_circle,
-                    title: '3. Results',
-                    description: 'Get instant alerts about your allergens',
+                    title: strings['homeStep3Title'] ?? '3. Results',
+                    description: strings['homeStep3Description'] ?? 'Get instant alerts about your allergens',
                     color: Colors.green,
                   ),
                 ],

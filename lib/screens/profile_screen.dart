@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
+import '../services/language_provider.dart';
 import '../widgets/avatar_display.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -22,39 +24,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _nameController = TextEditingController();
   final _customAllergenController = TextEditingController();
 
-  // Allergen labels will be loaded based on selected language
-  Map<String, String> _availableAllergens = {};
-  
-  // English allergen labels
-  final Map<String, String> _englishAllergens = {
-    'milk': '🥛 Milk & Dairy',
-    'eggs': '🥚 Eggs',
-    'peanuts': '🥜 Peanuts',
-    'tree_nuts': '🌰 Tree Nuts',
-    'soy': '🫘 Soy',
-    'wheat': '🌾 Wheat/Gluten',
-    'fish': '🐟 Fish',
-    'shellfish': '🦐 Shellfish',
-    'sesame': '🫘 Sesame',
-    'mustard': '🌭 Mustard',
-    'sulphites': '🧪 Sulphites',
-  };
-  
-  // French allergen labels
-  final Map<String, String> _frenchAllergens = {
-    'milk': '🥛 Lait & Produits laitiers',
-    'eggs': '🥚 Œufs',
-    'peanuts': '🥜 Arachides',
-    'tree_nuts': '🌰 Noix',
-    'soy': '🫘 Soja',
-    'wheat': '🌾 Blé/Gluten',
-    'fish': '🐟 Poisson',
-    'shellfish': '🦐 Crustacés',
-    'sesame': '🫘 Sésame',
-    'mustard': '🌭 Moutarde',
-    'sulphites': '🧪 Sulfites',
-  };
-
   Set<String> _selectedAllergens = {};
   List<String> _customAllergens = [];
   String _selectedLanguage = 'en';
@@ -70,15 +39,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadProfile();
   }
   
-  void _updateAllergenLabels() {
-    setState(() {
-      _availableAllergens = _selectedLanguage == 'fr' 
-          ? Map.from(_frenchAllergens)
-          : Map.from(_englishAllergens);
-    });
-    print('Profile screen: Allergen labels updated for language: $_selectedLanguage');
-  }
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -99,14 +59,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _avatarPhotoPath = profile.avatarPhotoPath;
         _isLoading = false;
       });
-      
-      // Update allergen labels based on loaded language
-      _updateAllergenLabels();
       print('Profile loaded with language: ${profile.language}');
     } else {
-      setState(() => _isLoading = false);
-      // Default to English allergen labels
-      _availableAllergens = Map.from(_englishAllergens);
+      if (!mounted) return;
+      final provider = context.read<LanguageProvider>();
+      setState(() {
+        _isLoading = false;
+        _selectedLanguage = provider.currentLanguage;
+      });
     }
   }
 
@@ -129,6 +89,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final languageProvider = context.read<LanguageProvider>();
     final updatedProfile = UserProfile(
       name: _nameController.text.trim(),
       allergens: _selectedAllergens.toList(),
@@ -147,16 +108,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _profile = updatedProfile;
         _isEditing = false;
       });
+      await languageProvider.changeLanguage(_selectedLanguage);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully!'),
+        SnackBar(
+          content: Text(languageProvider.text('profileUpdated')),
           backgroundColor: Colors.green,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to update profile. Please try again.'),
+        SnackBar(
+          content: Text(languageProvider.text('profileUpdateFailed')),
           backgroundColor: Colors.red,
         ),
       );
@@ -180,22 +142,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _confirmDeleteProfile() async {
+    final strings = context.read<LanguageProvider>().strings;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Profile'),
-        content: const Text(
-          'Are you sure you want to delete your profile? This action cannot be undone.',
+        title: Text(strings['deleteProfile'] ?? 'Delete Profile'),
+        content: Text(
+          strings['deleteProfileQuestion'] ??
+              'Are you sure you want to delete your profile? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(strings['cancel'] ?? 'Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(strings['delete'] ?? 'Delete'),
           ),
         ],
       ),
@@ -206,6 +170,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       
       if (success) {
+        await context.read<LanguageProvider>().changeLanguage('en');
         Navigator.of(context).pushReplacementNamed('/onboarding');
       }
     }
@@ -213,25 +178,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final languageProvider = context.watch<LanguageProvider>();
+    final strings = languageProvider.strings;
+    final editingAllergenLabels = languageProvider.allergenLabelsFor(_selectedLanguage);
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
+        appBar: AppBar(title: Text(strings['profileTitle'] ?? 'Profile')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_profile == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
-        body: const Center(
-          child: Text('No profile found. Please complete onboarding.'),
+        appBar: AppBar(title: Text(strings['profileTitle'] ?? 'Profile')),
+        body: Center(
+          child: Text(strings['profileNotFound'] ?? 'No profile found. Please complete onboarding.'),
         ),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text(strings['profileTitle'] ?? 'Profile'),
         actions: [
           if (!_isEditing)
             IconButton(
@@ -248,11 +216,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
         ],
       ),
-      body: _isEditing ? _buildEditMode() : _buildViewMode(),
+      body: _isEditing
+          ? _buildEditMode(strings, editingAllergenLabels, languageProvider)
+          : _buildViewMode(strings, languageProvider),
     );
   }
 
-  Widget _buildViewMode() {
+  Widget _buildViewMode(Map<String, String> strings, LanguageProvider languageProvider) {
+    final allergenLabels = languageProvider.allergenLabelsFor(_profile!.language);
+    final languageBadge = languageProvider.languageBadge(_profile!.language);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -283,7 +255,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    _profile!.language == 'en' ? '🇬🇧 English' : '🇫🇷 Français',
+                    languageBadge,
                     style: TextStyle(
                       color: Colors.teal.shade900,
                       fontWeight: FontWeight.w500,
@@ -295,9 +267,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 32),
           // Allergens section
-          const Text(
-            'My Allergens',
-            style: TextStyle(
+          Text(
+            strings['myAllergens'] ?? 'My Allergens',
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
@@ -311,10 +283,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
-                  'No allergens selected',
-                  style: TextStyle(
+                  strings['noAllergensSelected'] ?? 'No allergens selected',
+                  style: const TextStyle(
                     color: Colors.black54,
                     fontStyle: FontStyle.italic,
                   ),
@@ -326,9 +298,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_profile!.allergens.isNotEmpty) ...[
-                  const Text(
-                    'Standard Allergens',
-                    style: TextStyle(
+                  Text(
+                    strings['standardAllergens'] ?? 'Standard Allergens',
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: Colors.black54,
@@ -350,7 +322,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           border: Border.all(color: Colors.red.shade200),
                         ),
                         child: Text(
-                          _availableAllergens[key] ?? key,
+                          allergenLabels[key] ?? key,
                           style: TextStyle(
                             color: Colors.red.shade900,
                             fontWeight: FontWeight.w500,
@@ -362,9 +334,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
                 if (_profile!.customAllergens.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  const Text(
-                    'Custom Allergens',
-                    style: TextStyle(
+                  Text(
+                    strings['customAllergensTitle'] ?? 'Custom Allergens',
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: Colors.black54,
@@ -404,9 +376,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: OutlinedButton.icon(
               onPressed: _confirmDeleteProfile,
               icon: const Icon(Icons.delete_outline, color: Colors.red),
-              label: const Text(
-                'Delete Profile',
-                style: TextStyle(color: Colors.red),
+              label: Text(
+                strings['deleteProfile'] ?? 'Delete Profile',
+                style: const TextStyle(color: Colors.red),
               ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.red),
@@ -419,7 +391,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildEditMode() {
+  Widget _buildEditMode(
+    Map<String, String> strings,
+    Map<String, String> editingAllergenLabels,
+    LanguageProvider languageProvider,
+  ) {
     return Form(
       key: _formKey,
       child: SingleChildScrollView(
@@ -427,9 +403,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Edit Profile',
-              style: TextStyle(
+            Text(
+              strings['editProfile'] ?? 'Edit Profile',
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
@@ -437,9 +413,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 24),
             // Avatar selection
-            const Text(
-              'Avatar',
-              style: TextStyle(
+            Text(
+              strings['avatarLabel'] ?? 'Avatar',
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
@@ -488,7 +464,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _avatarPhotoPath != null ? 'Custom Photo Selected' : 'Upload Custom Photo',
+                            _avatarPhotoPath != null
+                                ? strings['customPhotoSelected'] ?? 'Custom Photo Selected'
+                                : strings['uploadCustomPhoto'] ?? 'Upload Custom Photo',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -497,7 +475,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            _avatarPhotoPath != null ? 'Tap to change' : 'Choose from gallery',
+                            _avatarPhotoPath != null
+                                ? strings['customPhotoTap'] ?? 'Tap to change'
+                                : strings['chooseFromGallery'] ?? 'Choose from gallery',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey[600],
@@ -515,10 +495,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            const Center(
+            Center(
               child: Text(
-                'OR',
-                style: TextStyle(
+                strings['orLabel'] ?? 'OR',
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.black54,
@@ -526,9 +506,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Choose an emoji avatar',
-              style: TextStyle(
+            Text(
+              strings['chooseEmojiAvatar'] ?? 'Choose an emoji avatar',
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: Colors.black54,
@@ -565,9 +545,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 24),
             // Name
-            const Text(
-              'Name',
-              style: TextStyle(
+            Text(
+              strings['nameLabel'] ?? 'Name',
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
@@ -577,7 +557,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextFormField(
               controller: _nameController,
               decoration: InputDecoration(
-                hintText: 'Enter your name',
+                hintText: strings['enterYourName'] ?? 'Enter your name',
                 prefixIcon: const Icon(Icons.person_outline),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -589,16 +569,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter your name';
+                  return strings['pleaseEnterYourName'] ?? 'Please enter your name';
                 }
                 return null;
               },
             ),
             const SizedBox(height: 24),
             // Language
-            const Text(
-              'Language',
-              style: TextStyle(
+            Text(
+              strings['languageLabel'] ?? 'Language',
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
@@ -608,26 +588,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _buildLanguageOption('en', 'English', '🇬🇧'),
+                  child: _buildLanguageOption('en', '🇬🇧', languageProvider, strings),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildLanguageOption('fr', 'Français', '🇫🇷'),
+                  child: _buildLanguageOption('fr', '🇫🇷', languageProvider, strings),
                 ),
               ],
             ),
             const SizedBox(height: 24),
             // Allergens
-            const Text(
-              'Allergens',
-              style: TextStyle(
+            Text(
+              strings['allergensLabel'] ?? 'Allergens',
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
               ),
             ),
             const SizedBox(height: 12),
-            ..._availableAllergens.entries.map((entry) {
+            ...editingAllergenLabels.entries.map((entry) {
               final isSelected = _selectedAllergens.contains(entry.key);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
@@ -676,9 +656,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             }).toList(),
             const SizedBox(height: 16),
             // Custom allergens
-            const Text(
-              'Custom Allergens',
-              style: TextStyle(
+            Text(
+              strings['customAllergensLabel'] ?? 'Custom Allergens',
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
@@ -691,7 +671,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: TextField(
                     controller: _customAllergenController,
                     decoration: InputDecoration(
-                      hintText: 'e.g., Corn, Celery',
+                      hintText: strings['hintCustomAllergens'] ?? 'e.g., Corn, Celery',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -739,9 +719,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Save Changes',
-                  style: TextStyle(
+                child: Text(
+                  strings['saveChanges'] ?? 'Save Changes',
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -755,13 +735,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildLanguageOption(String code, String name, String flag) {
+  Widget _buildLanguageOption(
+    String code,
+    String flag,
+    LanguageProvider languageProvider,
+    Map<String, String> strings,
+  ) {
     final isSelected = _selectedLanguage == code;
     return InkWell(
       onTap: () {
         setState(() => _selectedLanguage = code);
-        // Update allergen labels when language changes
-        _updateAllergenLabels();
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -779,7 +762,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(flag, style: const TextStyle(fontSize: 24)),
             const SizedBox(height: 4),
             Text(
-              name,
+              languageProvider.languageName(code),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,

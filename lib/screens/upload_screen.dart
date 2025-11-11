@@ -3,12 +3,14 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
 import 'package:crop_your_image/crop_your_image.dart';
+import 'package:provider/provider.dart';
 import 'dart:typed_data';
 import '../utils/text_normalization.dart';
 import '../utils/allergen_detector.dart';
 import 'results_screen.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
+import '../services/language_provider.dart';
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -85,6 +87,7 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   Future<void> _captureImage() async {
+    final strings = context.read<LanguageProvider>().strings;
     final XFile? pickedImage = await showModalBottomSheet<XFile?>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -106,9 +109,9 @@ class _UploadScreenState extends State<UploadScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Select Image Source',
-              style: TextStyle(
+            Text(
+              strings['uploadSheetTitle'] ?? 'Select Image Source',
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
@@ -124,11 +127,11 @@ class _UploadScreenState extends State<UploadScreen> {
                 ),
                 child: Icon(Icons.camera_alt, color: Colors.teal.shade600),
               ),
-              title: const Text(
-                'Camera',
-                style: TextStyle(fontWeight: FontWeight.w600),
+              title: Text(
+                strings['uploadCameraTitle'] ?? 'Camera',
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              subtitle: const Text('Take a new photo'),
+              subtitle: Text(strings['uploadCameraSubtitle'] ?? 'Take a new photo'),
               onTap: () async {
                 Navigator.pop(context, await _picker.pickImage(source: ImageSource.camera));
               },
@@ -143,11 +146,11 @@ class _UploadScreenState extends State<UploadScreen> {
                 ),
                 child: Icon(Icons.photo_library, color: Colors.blue.shade600),
               ),
-              title: const Text(
-                'Gallery',
-                style: TextStyle(fontWeight: FontWeight.w600),
+              title: Text(
+                strings['uploadGalleryTitle'] ?? 'Gallery',
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              subtitle: const Text('Choose from gallery'),
+              subtitle: Text(strings['uploadGallerySubtitle'] ?? 'Choose from gallery'),
               onTap: () async {
                 Navigator.pop(context, await _picker.pickImage(source: ImageSource.gallery));
               },
@@ -155,7 +158,7 @@ class _UploadScreenState extends State<UploadScreen> {
             const SizedBox(height: 16),
             TextButton(
               onPressed: () => Navigator.pop(context, null),
-              child: const Text('Cancel'),
+              child: Text(strings['cancel'] ?? 'Cancel'),
             ),
           ],
         ),
@@ -445,10 +448,11 @@ class _UploadScreenState extends State<UploadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.watch<LanguageProvider>().strings;
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Scan Label'),
+        title: Text(strings['uploadAppBarTitle'] ?? 'Scan Label'),
         elevation: 0,
       ),
       body: Stack(
@@ -475,7 +479,8 @@ class _UploadScreenState extends State<UploadScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Position the ingredient label clearly in the frame for best results',
+                            strings['uploadInstructions'] ??
+                                'Position the ingredient label clearly in the frame for best results',
                             style: TextStyle(
                               color: Colors.blue.shade900,
                               fontSize: 14,
@@ -514,7 +519,7 @@ class _UploadScreenState extends State<UploadScreen> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'No image selected',
+                                strings['uploadNoImageTitle'] ?? 'No image selected',
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: Colors.grey[600],
@@ -523,7 +528,7 @@ class _UploadScreenState extends State<UploadScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Tap the button below to get started',
+                                strings['uploadNoImageSubtitle'] ?? 'Tap the button below to get started',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[500],
@@ -550,7 +555,9 @@ class _UploadScreenState extends State<UploadScreen> {
                       onPressed: _isProcessing ? null : _captureImage,
                       icon: const Icon(Icons.camera_alt, size: 24),
                       label: Text(
-                        _image == null ? 'Capture or Select Image' : 'Change Image',
+                        _image == null
+                            ? strings['uploadPrimaryButton'] ?? 'Capture or Select Image'
+                            : strings['uploadPrimaryButtonChange'] ?? 'Change Image',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -581,9 +588,9 @@ class _UploadScreenState extends State<UploadScreen> {
                           children: [
                             Icon(Icons.lightbulb_outline, color: Colors.amber.shade700, size: 20),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Tips for best results',
-                              style: TextStyle(
+                            Text(
+                              strings['uploadTipsTitle'] ?? 'Tips for best results',
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
@@ -592,10 +599,10 @@ class _UploadScreenState extends State<UploadScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _buildTip('Ensure good lighting'),
-                        _buildTip('Keep the label flat and in focus'),
-                        _buildTip('Avoid shadows and glare'),
-                        _buildTip('Capture the entire ingredients section'),
+                        _buildTip(strings['uploadTipLighting'] ?? 'Ensure good lighting'),
+                        _buildTip(strings['uploadTipFocus'] ?? 'Keep the label flat and in focus'),
+                        _buildTip(strings['uploadTipShadows'] ?? 'Avoid shadows and glare'),
+                        _buildTip(strings['uploadTipFullLabel'] ?? 'Capture the entire ingredients section'),
                       ],
                     ),
                   ),
@@ -619,9 +626,9 @@ class _UploadScreenState extends State<UploadScreen> {
                     children: [
                       CircularProgressIndicator(color: Colors.teal.shade600),
                       const SizedBox(height: 20),
-                      const Text(
-                        'Analyzing with enhanced OCR...',
-                        style: TextStyle(
+                      Text(
+                        strings['uploadProcessingTitle'] ?? 'Analyzing with enhanced OCR...',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.black87,
@@ -629,7 +636,8 @@ class _UploadScreenState extends State<UploadScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Testing multiple recognition modes for best accuracy',
+                        strings['uploadProcessingSubtitle'] ??
+                            'Testing multiple recognition modes for best accuracy',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],

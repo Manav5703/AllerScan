@@ -323,7 +323,7 @@ class ResultsScreen extends StatelessWidget {
                   ],
 
                   // All detected allergens (original sections, but less prominent if user has profile)
-                  if (hardAllergens.isNotEmpty || softAllergens.isNotEmpty) ...[
+                  if (hardAllergens.isNotEmpty) ...[
                     if (userProfile != null && userAllergens.isNotEmpty) ...[
                       Text(
                         userProfile?.language == 'fr'
@@ -349,19 +349,6 @@ class ResultsScreen extends StatelessWidget {
                             : 'These allergens are confirmed in this product',
                       ),
                       const SizedBox(height: 12),
-                    ],
-
-                    if (softAllergens.isNotEmpty) ...[
-                      _buildAllergenSection(
-                        title: userProfile?.language == 'fr' ? 'Peut Contenir' : 'May Contain',
-                        icon: Icons.warning_amber,
-                        color: Colors.orange,
-                        allergens: softAllergens,
-                        description: userProfile?.language == 'fr'
-                            ? 'Ces allergènes ont été détectés dans la liste des ingrédients'
-                            : 'These allergens were detected in the ingredients list',
-                      ),
-                      const SizedBox(height: 16),
                     ],
                   ],
 
