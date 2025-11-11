@@ -1,150 +1,121 @@
- <div align="center">
+# AllerScan – Food-Label Allergen Scanner (Android)
 
-# AllerScan
+[![GitHub last commit](https://img.shields.io/github/last-commit/Manav5703/AllerScan)](https://github.com/Manav5703/AllerScan/commits/main)
+[![Flutter](https://img.shields.io/badge/Flutter-3.22+-blue?logo=flutter)](https://flutter.dev)
+[![Android](https://img.shields.io/badge/Platform-Android-green?logo=android)](https://developer.android.com)
 
-An offline-first Flutter application that scans food labels, extracts ingredients with on-device OCR, and highlights allergens using a personalized profile. Built as the COMP‑4983 Capstone project (Fall 2025).
-
-</div>
+**AllerScan** is a lightweight, offline Android app that lets users scan packaged-food labels, extracts the ingredient list with **Tesseract OCR**, and instantly flags allergens using a **Canadian bilingual (EN/FR) lexicon**.  
+The app is built for the **COMP 4983 Capstone** under supervision of **Dr. Lydia Bouzar-Benlabiod**.
 
 ---
 
 ## Table of Contents
-
-1. [Features](#features)
-2. [Project Structure](#project-structure)
-3. [Localization & Language Switching](#localization--language-switching)
-4. [Allergen Detection Pipeline](#allergen-detection-pipeline)
-5. [Getting Started](#getting-started)
-6. [Running the App](#running-the-app)
-7. [Troubleshooting](#troubleshooting)
-8. [Roadmap](#roadmap)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Installation (Developer)](#installation-developer)
+- [Running the App](#running-the-app)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Roadmap](#roadmap)
+- [License](#license)
 
 ---
 
 ## Features
-
-- **Label Scanning** – Capture or upload images of ingredient labels on-device.
-- **Enhanced OCR** – Multiple Tesseract configurations (English & French) improve recognition without leaving the device.
-- **Personalized Profiles** – Users specify their name, allergen list (standard + custom), avatar, and preferred language.
-- **Dynamic Language Switching** – Entire UI instantly reflects the profile language (English ↔ Français) using a lightweight `LanguageProvider`.
-- **Allergen Warnings** – Clearly labeled results screen shows confirmed detections and the ingredient list for review.
-- **Offline Operation** – No network calls during OCR or allergen detection, preserving privacy.
-
----
-
-## Project Structure
-
-```
-lib/
-  main.dart                 # App entry point & global providers
-  services/
-    language_provider.dart  # UI strings + language persistence
-    profile_service.dart    # SharedPreferences persistence
-  models/
-    user_profile.dart       # Profile data model
-  screens/
-    onboarding_screen.dart  # Profile creation wizard
-    home_screen.dart        # Dashboard & navigation hub
-    upload_screen.dart      # Image capture / OCR trigger
-    results_screen.dart     # Allergen detection results
-    profile_screen.dart     # Profile view/edit/delete
-  utils/
-    allergen_detector.dart  # Dictionary-based matching logic
-    text_normalization.dart # Helpers for cleaned OCR text
-assets/
-  tessdata/                 # Tesseract language data
-  allergens_*.json          # Allergen dictionaries (EN/FR)
-l10n/                       # Provider-based string maps (EN/FR)
-```
+| Status | Feature |
+|--------|---------|
+| Done | **Camera / Gallery image capture** (`image_picker`) |
+| Done | **Tesseract OCR** with English + French trained data (`flutter_tesseract_ocr`) |
+| Done | **Bilingual allergen lexicon** (JSON) – 14 priority allergens per Health Canada |
+| Done | **Rule-based detection** (lexicon lookup) |
+| Done | **Enhanced OCR** – image cropping, contrast, PSM tuning for soft-allergen detection |
+| Done | **Allergen alerts** – red chips, haptic feedback (`vibration`) |
+| Done | **User profile & onboarding** – avatar (emoji only), personal allergen list |
+| Done | **Full-app localisation** (`LanguageProvider`) – EN / FR switch |
+| Done | **Android-only** (iOS scope removed) |
 
 ---
 
-## Localization & Language Switching
-
-- `LanguageProvider` stores all translated UI strings and allergen labels for English (`en`) and French (`fr`).
-- The provider persists the last selected language with `SharedPreferences` so the app re-opens in the expected locale.
-- Onboarding and Profile screens update the provider whenever the user toggles languages, refreshing the entire UI instantly.
-- After profile deletion the language resets to English, ensuring new users start with the default experience.
-
-To add or update strings:
-1. Edit `lib/services/language_provider.dart` in the `_localizedStrings` section.
-2. Reference strings using `context.watch<LanguageProvider>().text('key')` or `strings['key']` from the provider.
-
----
-
-## Allergen Detection Pipeline
-
-1. **OCR Stage** – `upload_screen.dart` invokes `flutter_tesseract_ocr` with multiple PSM/OEM configurations and a character whitelist to maximise accuracy.
-2. **Text Normalization** – `text_normalization.dart` filters and lowercases OCR output, isolating the ingredient section.
-3. **Dictionary Matching** – `allergen_detector.dart` compares normalized text with language-specific dictionaries (`allergens_en.json`, `allergens_fr.json`).
-4. **Results Presentation** – `results_screen.dart` highlights confirmed matches ("Contains") and lists the cleaned ingredient text for manual review. The optional "May Contain" warning has been removed per latest UX requirements.
+## Tech Stack
+| Layer | Technology |
+|-------|------------|
+| **Framework** | Flutter 3.22+ (Dart 3) |
+| **OCR** | `flutter_tesseract_ocr` with on-device English/French configs |
+| **Image handling** | `image_picker`, `image_cropper` |
+| **State / Localisation** | `provider` (`LanguageProvider`) |
+| **Persistence** | `shared_preferences` (profile data) |
+| **Allergen data** | JSON dictionaries (`assets/allergens_en.json`, `assets/allergens_fr.json`) |
+| **IDE** | VS Code / Android Studio |
 
 ---
 
-## Getting Started
-
-### Prerequisites
-
-- [Flutter](https://docs.flutter.dev/get-started/install) SDK **3.9.0 or later**
-- Android Studio or VS Code with Flutter tooling
-- Java 11+ (for Android builds)
-- Android device or emulator (iOS not yet configured)
-
-> **Note:** The project uses the Flutter stable channel. Run `flutter upgrade` if you encounter tooling mismatches.
-
-### Initial Setup
-
+## Installation (Developer)
 ```bash
+# 1. Clone the repo
 git clone https://github.com/Manav5703/AllerScan.git
 cd AllerScan
-flutter pub get
-```
 
-If you clean the project (`flutter clean`), ensure the `.dart_tool` directory can be recreated (particularly on OneDrive—remove restrictive permissions if needed).
+# 2. Get dependencies
+flutter pub get
+
+# 3. Verify assets are in place
+#    - assets/allergens_en.json
+#    - assets/allergens_fr.json
+#    - assets/tessdata/eng.traineddata (if using English OCR configs)
+#    - assets/tessdata/fra.traineddata (if using French OCR configs)
+```
 
 ---
 
 ## Running the App
-
 ```bash
-# Connect a device or start an emulator
-flutter devices
-
-# Run the app in debug mode
+# Connect an Android device (USB debugging ON) or start an emulator
 flutter run
-
-# Build a release APK (optional)
-flutter build apk --release
 ```
 
-During the first launch:
-1. Step through the onboarding wizard.
-2. Select allergens (standard + custom) and a display language.
-3. Use the Home screen to scan a product label and review results.
+The app launches on **Android 5.0+**.  
+All processing is **offline** – no network permission required.
+
+---
+
+## Testing
+```bash
+# Unit tests
+flutter test
+
+# Widget tests (example)
+flutter test test/widget_test.dart
+```
 
 ---
 
 ## Troubleshooting
-
-| Issue | Fix |
-| ----- | --- |
-| **`package:provider/provider.dart` not found** | Run `flutter pub get` to ensure dependencies are installed. |
-| **Permission errors under `l10n/` or `.dart_tool/`** | Remove Deny ACLs (common with OneDrive). Recreate folders with `mkdir -Force` and retry. |
-| **`May Contain` section still visible** | Ensure you pulled the latest changes; only "Contains" is rendered now. |
-| **OCR inaccurate on French labels** | Confirm onboarding/profile language is set to French so the French dictionary loads. |
-| **Slow build / verbose logs** | Clean the build cache with `flutter clean` and rerun `flutter pub get`. |
+| Issue | Suggested Fix |
+|-------|----------------|
+| Missing allergen strings | Ensure `assets/allergens_en.json` and `assets/allergens_fr.json` exist and are listed in `pubspec.yaml`. Run `flutter pub get`. |
+| OCR returns empty text | Check lighting, crop tighter, and confirm the selected language matches the package language so the right configs load. |
+| Language doesn’t switch | Confirm `LanguageProvider.changeLanguage` is called and `SharedPreferences` isn’t blocked by OS permissions. Delete the profile to reset if needed. |
+| Build errors on Windows/OneDrive | Remove restrictive ACLs, then rerun `flutter clean` followed by `flutter pub get`. |
 
 ---
 
 ## Roadmap
+- Reinstate iOS/web/desktop scaffolds once Android feature set stabilizes.
+- Expand allergen dictionaries to cover additional locales.
+- Add widget/unit tests for language switching, profile persistence, and allergen detection.
+- Explore optional encrypted cloud backup for profiles.
 
-- iOS build support and platform testing
-- Expand allergen dictionaries for additional locales
-- Unit tests for profile persistence and language switching
-- Optional cloud sync for profiles (while preserving privacy controls)
+## License
+```
+MIT License – see LICENSE file
+```
 
 ---
 
-## License
+**Author** – Manav Patel   
+**Supervisor** – Dr. Lydia Bouzar-Benlabiod  
+**Date** – November 11, 2025
 
-This project is currently under academic development. Licensing will be determined prior to public release.
+---
+
+*Happy scanning – stay safe from allergens!*
