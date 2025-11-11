@@ -1,4 +1,4 @@
-# AllerScan – Food-Label Allergen Scanner (Android)
+# AllerScan – Food Label Allergen Scanner (Android)
 
 [![GitHub last commit](https://img.shields.io/github/last-commit/Manav5703/AllerScan)](https://github.com/Manav5703/AllerScan/commits/main)
 [![Flutter](https://img.shields.io/badge/Flutter-3.22+-blue?logo=flutter)](https://flutter.dev)
