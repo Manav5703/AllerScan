@@ -301,7 +301,41 @@ class _UploadScreenState extends State<UploadScreen> {
       final filteredText = _filterIngredients(chosenText);
       final normalizedForDisplay = filteredText.isNotEmpty
           ? TextNormalization.normalizeBasic(filteredText)
-          : 'No ingredients found (raw text: $chosenText)';
+          : '';
+
+      final strings = context.read<LanguageProvider>().strings;
+
+      if (normalizedForDisplay.isEmpty) {
+        print('No ingredients header detected. Prompting user to retry.');
+        setState(() => _isProcessing = false);
+
+        if (!mounted) return;
+
+        await showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text(strings['uploadMissingIngredientsTitle'] ?? 'No ingredients found'),
+              content: Text(strings['uploadMissingIngredientsMessage'] ??
+                  'We couldn\'t find the word "Ingredients" in this photo. Please retake or choose another shot.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(strings['cancel'] ?? 'Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _captureImage();
+                  },
+                  child: Text(strings['retryCta'] ?? 'Try Again'),
+                ),
+              ],
+            );
+          },
+        );
+        return;
+      }
 
       print('Final filtered text: $normalizedForDisplay');
 
